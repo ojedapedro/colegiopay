@@ -1,0 +1,7 @@
+{
+  "name": "ColegioPay - Sistema de Gestión de Recibos",
+  "description": "Aplicación integral para la gestión de cobros, registro de matrículas y reportes financieros para instituciones educativas, con integración de verificación de pagos manual y electrónica.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
