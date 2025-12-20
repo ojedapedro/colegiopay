@@ -7,31 +7,25 @@ export const sheetService = {
   },
 
   setScriptUrl(url: string) {
-    localStorage.setItem('school_script_url', url);
+    localStorage.setItem('school_script_url', url.trim());
   },
 
   isValidConfig() {
     const url = this.getScriptUrl();
-    return url !== '' && url.includes('script.google.com');
+    return url !== '' && url.startsWith('https://script.google.com/macros/s/') && url.endsWith('/exec');
   },
 
   async fetchAll() {
     const url = this.getScriptUrl();
     if (!this.isValidConfig()) return null;
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
     try {
       const response = await fetch(url, {
         method: 'GET',
-        redirect: 'follow',
-        signal: controller.signal
+        redirect: 'follow'
       });
       
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) return null;
+      if (!response.ok) throw new Error('Error en la respuesta del servidor');
       
       const data = await response.json();
       if (data && data.error) {
@@ -41,22 +35,23 @@ export const sheetService = {
       
       return data;
     } catch (error) {
-      console.warn('No se pudo conectar con Google Sheets. Usando datos locales.');
+      console.warn('Fallo al conectar con Google Sheets:', error);
       return null;
     }
   },
 
   async syncAll(data: { users: User[], representatives: Representative[], payments: PaymentRecord[], fees: LevelFees }) {
     const url = this.getScriptUrl();
-    if (!this.isValidConfig()) return false;
+    if (!this.isValidConfig()) {
+      console.error('Configuración de URL inválida');
+      return false;
+    }
 
-    // Lógica de fecha tope
     const now = new Date();
     const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    const deadlineStr = lastDayOfMonth.toISOString().split('T')[0];
+    const deadlineStr = lastDayOfMonth.toLocaleDateString('es-VE');
     const daysUntilDeadline = Math.ceil((lastDayOfMonth.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
-    // Generar datos para el Libro de Cuentas por Cobrar
     const accountsReceivable = data.representatives.map(rep => {
       const totalDue = rep.students.reduce((sum, s) => sum + data.fees[s.level], 0);
       const totalPaid = data.payments
@@ -74,14 +69,15 @@ export const sheetService = {
         totalAbonado: totalPaid,
         saldoPendiente: balance,
         fechaTopePago: deadlineStr,
-        diasRestantes: balance > 0 ? daysUntilDeadline : 'Pagado'
+        diasRestantes: balance > 0 ? daysUntilDeadline : 'Solvente'
       };
     });
 
     try {
-      await fetch(url, {
+      // Usamos una petición más estándar para evitar problemas de CORS en la medida de lo posible
+      const response = await fetch(url, {
         method: 'POST',
-        mode: 'no-cors',
+        mode: 'no-cors', // Necesario para Google Apps Script si no hay configuración CORS compleja
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           action: 'sync_all', 
@@ -91,9 +87,11 @@ export const sheetService = {
           } 
         })
       });
+      
+      // En modo no-cors no podemos ver la respuesta, asumimos éxito si no hay excepción
       return true;
     } catch (error) {
-      console.error('Fallo de sincronización:', error);
+      console.error('Error crítico en sincronización:', error);
       return false;
     }
   }
