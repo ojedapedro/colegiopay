@@ -20,38 +20,44 @@ export const sheetService = {
     if (!this.isValidConfig()) return null;
 
     try {
+      // Usamos un proxy de tiempo de espera manual para evitar cuelgues
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), 15000);
+
       const response = await fetch(url, {
         method: 'GET',
-        redirect: 'follow'
+        redirect: 'follow',
+        signal: controller.signal
       });
       
-      if (!response.ok) throw new Error('Error en la respuesta del servidor');
+      clearTimeout(id);
+      
+      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
       
       const data = await response.json();
       if (data && data.error) {
-        console.error('Error del Script:', data.error);
+        console.error('Error reportado por Apps Script:', data.error);
         return null;
       }
       
       return data;
     } catch (error) {
-      console.warn('Fallo al conectar con Google Sheets:', error);
+      console.warn('Fallo al obtener datos de Google Sheets:', error);
       return null;
     }
   },
 
   async syncAll(data: { users: User[], representatives: Representative[], payments: PaymentRecord[], fees: LevelFees }) {
     const url = this.getScriptUrl();
-    if (!this.isValidConfig()) {
-      console.error('Configuración de URL inválida');
-      return false;
-    }
+    if (!this.isValidConfig()) return false;
 
+    // Cálculo de fechas para morosidad
     const now = new Date();
     const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    const deadlineStr = lastDayOfMonth.toLocaleDateString('es-VE');
+    const deadlineStr = lastDayOfMonth.toISOString().split('T')[0];
     const daysUntilDeadline = Math.ceil((lastDayOfMonth.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
+    // Preparar reporte de Cuentas por Cobrar
     const accountsReceivable = data.representatives.map(rep => {
       const totalDue = rep.students.reduce((sum, s) => sum + data.fees[s.level], 0);
       const totalPaid = data.payments
@@ -69,16 +75,20 @@ export const sheetService = {
         totalAbonado: totalPaid,
         saldoPendiente: balance,
         fechaTopePago: deadlineStr,
-        diasRestantes: balance > 0 ? daysUntilDeadline : 'Solvente'
+        diasRestantes: balance > 0 ? daysUntilDeadline : 'SOLVENTE'
       };
     });
 
     try {
-      // Usamos una petición más estándar para evitar problemas de CORS en la medida de lo posible
+      // IMPORTANTE: Google Apps Script requiere que el cuerpo del POST sea un string
+      // No podemos usar 'no-cors' si queremos asegurar que el contenido llegue como JSON válido
+      // pero debido a las limitaciones de GAS, enviamos como texto plano para evitar preflight
       const response = await fetch(url, {
         method: 'POST',
-        mode: 'no-cors', // Necesario para Google Apps Script si no hay configuración CORS compleja
-        headers: { 'Content-Type': 'application/json' },
+        mode: 'no-cors', 
+        headers: {
+          'Content-Type': 'text/plain' // Usamos text/plain para evitar errores CORS pre-flight en GAS
+        },
         body: JSON.stringify({ 
           action: 'sync_all', 
           data: {
@@ -88,7 +98,7 @@ export const sheetService = {
         })
       });
       
-      // En modo no-cors no podemos ver la respuesta, asumimos éxito si no hay excepción
+      // En modo 'no-cors' la respuesta es opaca, asumimos éxito si no hay error de red
       return true;
     } catch (error) {
       console.error('Error crítico en sincronización:', error);
