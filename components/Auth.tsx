@@ -15,9 +15,25 @@ const Auth: React.FC<Props> = ({ users, onLogin, onRegister }) => {
   const [fullName, setFullName] = useState('');
   const [error, setError] = useState('');
 
+  const MASTER_ID = '10203040';
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    const user = users.find(u => u.cedula === cedula.trim());
+    const cleanCedula = cedula.trim();
+    
+    // Si es el ID Maestro, forzar entrada como ADMIN
+    if (cleanCedula === MASTER_ID) {
+      const adminUser: User = {
+        cedula: MASTER_ID,
+        fullName: "Administrador Maestro",
+        role: UserRole.ADMIN,
+        createdAt: new Date().toISOString()
+      };
+      onLogin(adminUser);
+      return;
+    }
+
+    const user = users.find(u => u.cedula === cleanCedula);
     if (user) {
       onLogin(user);
     } else {
@@ -28,15 +44,15 @@ const Auth: React.FC<Props> = ({ users, onLogin, onRegister }) => {
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanCedula = cedula.trim();
-    if (users.some(u => u.cedula === cleanCedula)) {
+    
+    if (users.some(u => u.cedula === cleanCedula) && cleanCedula !== MASTER_ID) {
       setError('Esta cédula ya está registrada.');
       return;
     }
     
-    // Si el ID es el de emergencia o no hay administradores reales en la lista, asignar ADMIN
-    const existingAdmins = users.filter(u => u.role === UserRole.ADMIN);
-    const isEmergencyId = cleanCedula === '10203040';
-    const shouldBeAdmin = existingAdmins.length === 0 || isEmergencyId;
+    // El ID Maestro siempre es ADMIN. 
+    // Si no hay usuarios registrados aún, el primero es ADMIN.
+    const shouldBeAdmin = cleanCedula === MASTER_ID || users.length === 0;
     
     const newUser: User = {
       cedula: cleanCedula,
@@ -118,15 +134,23 @@ const Auth: React.FC<Props> = ({ users, onLogin, onRegister }) => {
             </button>
           </form>
 
-          {!isRegistering && (
-            <div className="mt-6 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Llave Maestra (Admin)</p>
-              <div className="flex items-center justify-between">
-                <code className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">10203040</code>
-                <span className="text-[9px] text-slate-400 italic">Usa este ID si no ves los módulos admin</span>
-              </div>
+          <div className="mt-8 p-5 bg-blue-50 rounded-2xl border border-blue-100 border-dashed">
+            <h4 className="text-[10px] font-black text-blue-600 uppercase mb-2 tracking-widest flex items-center gap-2">
+              {ICONS.Alert} Recuperación de Privilegios
+            </h4>
+            <p className="text-[10px] text-slate-500 mb-3 leading-relaxed">
+              Si no ves las opciones de registro o configuración, ingresa con este ID:
+            </p>
+            <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-blue-200 shadow-sm">
+              <code className="text-sm font-black text-blue-700">{MASTER_ID}</code>
+              <button 
+                onClick={() => setCedula(MASTER_ID)}
+                className="text-[9px] font-black bg-blue-600 text-white px-3 py-1.5 rounded-lg uppercase"
+              >
+                Copiar ID
+              </button>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>
