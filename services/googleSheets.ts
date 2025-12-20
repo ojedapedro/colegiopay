@@ -28,9 +28,18 @@ export const sheetService = {
       
       if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
       const data = await response.json();
+      
+      // Adaptar nombres de columnas si vienen del sheet (cedulaRepresen -> cedulaRepresentative)
+      if (data.payments) {
+        data.payments = data.payments.map((p: any) => ({
+          ...p,
+          cedulaRepresentative: p.cedulaRepresen || p.cedulaRepresentative
+        }));
+      }
+      
       return data;
     } catch (error) {
-      console.warn('Fallo fetchAll:', error);
+      console.warn('Error al leer de la nube:', error);
       return null;
     }
   },
@@ -39,7 +48,7 @@ export const sheetService = {
     const url = this.getScriptUrl();
     if (!this.isValidConfig()) return false;
 
-    // Preparar reporte de cuentas por cobrar para Google Sheets
+    // Reporte de CuentasPorCobrar con los nombres EXACTOS de tus columnas en la imagen
     const ledger = data.representatives.map(rep => {
       const totalDue = rep.students.reduce((sum, s) => sum + data.fees[s.level], 0);
       const totalPaid = data.payments
@@ -47,25 +56,45 @@ export const sheetService = {
         .reduce((sum, p) => sum + p.amount, 0);
       
       return {
-        Representante: `${rep.firstName} ${rep.lastName}`,
-        Cedula: rep.cedula,
-        TotalDeuda: totalDue,
-        TotalAbonado: totalPaid,
-        SaldoPendiente: Math.max(0, totalDue - totalPaid),
-        Alumnos: rep.students.map(s => `${s.fullName} (${s.level})`).join(' | ')
+        representante: `${rep.firstName} ${rep.lastName}`,
+        cedula: rep.cedula,
+        matricula: rep.matricula,
+        alumnos: rep.students.map(s => `${s.fullName} (${s.level})`).join(' | '),
+        montoMensualid: totalDue,
+        totalAbonado: totalPaid,
+        saldoPendiente: Math.max(0, totalDue - totalPaid)
       };
     });
+
+    // Mapeo de Pagos con nombres EXACTOS (cedulaRepresen)
+    const mappedPayments = data.payments.map(p => ({
+      id: p.id,
+      timestamp: p.timestamp,
+      paymentDate: p.paymentDate,
+      cedulaRepresen: p.cedulaRepresentative, // Mapeo exacto a tu imagen
+      matricula: p.matricula,
+      level: p.level,
+      method: p.method,
+      reference: p.reference,
+      amount: p.amount,
+      observations: p.observations,
+      status: p.status,
+      type: p.type,
+      pendingBalance: p.pendingBalance
+    }));
 
     try {
       const payload = { 
         action: 'sync_all', 
         data: {
-          ...data,
+          users: data.users,
+          representatives: data.representatives,
+          payments: mappedPayments,
+          fees: data.fees,
           ledger: ledger
         } 
       };
 
-      // Enviamos como text/plain para que Google Apps Script doPost no requiera preflight (CORS simple)
       await fetch(url, {
         method: 'POST',
         mode: 'no-cors',
@@ -77,7 +106,7 @@ export const sheetService = {
       
       return true;
     } catch (error) {
-      console.error('Error syncAll:', error);
+      console.error('Fallo crítico en sincronización:', error);
       return false;
     }
   }
