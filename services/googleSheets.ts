@@ -20,7 +20,6 @@ export const sheetService = {
     if (!this.isValidConfig()) return null;
 
     try {
-      // Usamos un proxy de tiempo de espera manual para evitar cuelgues
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), 15000);
 
@@ -51,13 +50,11 @@ export const sheetService = {
     const url = this.getScriptUrl();
     if (!this.isValidConfig()) return false;
 
-    // Cálculo de fechas para morosidad
     const now = new Date();
     const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     const deadlineStr = lastDayOfMonth.toISOString().split('T')[0];
     const daysUntilDeadline = Math.ceil((lastDayOfMonth.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
-    // Preparar reporte de Cuentas por Cobrar
     const accountsReceivable = data.representatives.map(rep => {
       const totalDue = rep.students.reduce((sum, s) => sum + data.fees[s.level], 0);
       const totalPaid = data.payments
@@ -80,14 +77,14 @@ export const sheetService = {
     });
 
     try {
-      // IMPORTANTE: Google Apps Script requiere que el cuerpo del POST sea un string
-      // No podemos usar 'no-cors' si queremos asegurar que el contenido llegue como JSON válido
-      // pero debido a las limitaciones de GAS, enviamos como texto plano para evitar preflight
-      const response = await fetch(url, {
+      // Para Google Apps Script POST, enviamos como text/plain para evitar Preflight CORS
+      // El script recibirá el JSON en e.postData.contents
+      await fetch(url, {
         method: 'POST',
-        mode: 'no-cors', 
+        mode: 'no-cors',
+        cache: 'no-cache',
         headers: {
-          'Content-Type': 'text/plain' // Usamos text/plain para evitar errores CORS pre-flight en GAS
+          'Content-Type': 'text/plain;charset=utf-8',
         },
         body: JSON.stringify({ 
           action: 'sync_all', 
@@ -98,7 +95,6 @@ export const sheetService = {
         })
       });
       
-      // En modo 'no-cors' la respuesta es opaca, asumimos éxito si no hay error de red
       return true;
     } catch (error) {
       console.error('Error crítico en sincronización:', error);
