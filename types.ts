@@ -55,6 +55,7 @@ export interface Representative {
   cedula: string;
   firstName: string;
   lastName: string;
+  phone: string;
   matricula: string;
   students: Student[];
 }

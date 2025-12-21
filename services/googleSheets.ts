@@ -48,7 +48,7 @@ export const sheetService = {
     const url = this.getScriptUrl();
     if (!this.isValidConfig()) return false;
 
-    // Reporte de CuentasPorCobrar con los nombres EXACTOS de tus columnas en la imagen
+    // Reporte de CuentasPorCobrar con los nombres EXACTOS de la estructura inicializada
     const ledger = data.representatives.map(rep => {
       const totalDue = rep.students.reduce((sum, s) => sum + data.fees[s.level], 0);
       const totalPaid = data.payments
@@ -59,6 +59,7 @@ export const sheetService = {
         representante: `${rep.firstName} ${rep.lastName}`,
         cedula: rep.cedula,
         matricula: rep.matricula,
+        telefono: rep.phone,
         alumnos: rep.students.map(s => `${s.fullName} (${s.level})`).join(' | '),
         montoMensualid: totalDue,
         totalAbonado: totalPaid,
@@ -66,12 +67,22 @@ export const sheetService = {
       };
     });
 
-    // Mapeo de Pagos con nombres EXACTOS (cedulaRepresen)
+    // Mapeo de Representantes asegurando el campo phone
+    const mappedReps = data.representatives.map(r => ({
+      cedula: r.cedula,
+      firstName: r.firstName,
+      lastName: r.lastName,
+      phone: r.phone || '',
+      matricula: r.matricula,
+      students: r.students
+    }));
+
+    // Mapeo de Pagos con nombres EXACTOS para el Sheet
     const mappedPayments = data.payments.map(p => ({
       id: p.id,
       timestamp: p.timestamp,
       paymentDate: p.paymentDate,
-      cedulaRepresen: p.cedulaRepresentative, // Mapeo exacto a tu imagen
+      cedulaRepresen: p.cedulaRepresentative,
       matricula: p.matricula,
       level: p.level,
       method: p.method,
@@ -88,13 +99,14 @@ export const sheetService = {
         action: 'sync_all', 
         data: {
           users: data.users,
-          representatives: data.representatives,
+          representatives: mappedReps,
           payments: mappedPayments,
           fees: data.fees,
           ledger: ledger
         } 
       };
 
+      // Usamos no-cors para evitar el preflight de Google y enviamos como texto plano
       await fetch(url, {
         method: 'POST',
         mode: 'no-cors',
@@ -104,6 +116,7 @@ export const sheetService = {
         body: JSON.stringify(payload)
       });
       
+      console.log('Sincronización enviada a Google Sheets ID 13lZSsC...');
       return true;
     } catch (error) {
       console.error('Fallo crítico en sincronización:', error);

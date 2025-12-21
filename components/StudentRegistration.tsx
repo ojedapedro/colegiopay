@@ -12,6 +12,7 @@ const StudentRegistration: React.FC<Props> = ({ representatives, onRegister }) =
   const [cedula, setCedula] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
   
   const [studentName, setStudentName] = useState('');
   const [level, setLevel] = useState<Level>(Level.PRIMARIA);
@@ -33,8 +34,8 @@ const StudentRegistration: React.FC<Props> = ({ representatives, onRegister }) =
 
   const handleFinalSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!cedula || !firstName || !lastName || addedStudents.length === 0) {
-      alert("Por favor complete todos los campos y agregue al menos un alumno.");
+    if (!cedula || !firstName || !lastName || !phone || addedStudents.length === 0) {
+      alert("Por favor complete todos los campos (incluyendo el teléfono) y agregue al menos un alumno.");
       return;
     }
 
@@ -46,6 +47,7 @@ const StudentRegistration: React.FC<Props> = ({ representatives, onRegister }) =
       cedula,
       firstName,
       lastName,
+      phone,
       matricula,
       students: addedStudents
     };
@@ -56,6 +58,7 @@ const StudentRegistration: React.FC<Props> = ({ representatives, onRegister }) =
     setCedula('');
     setFirstName('');
     setLastName('');
+    setPhone('');
     setAddedStudents([]);
     alert(`Registro Exitoso. Matrícula Generada: ${matricula}`);
   };
@@ -100,6 +103,17 @@ const StudentRegistration: React.FC<Props> = ({ representatives, onRegister }) =
                 onChange={(e) => setLastName(e.target.value)}
                 className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 placeholder="Apellido"
+                required
+              />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <label className="text-xs font-bold text-slate-500 uppercase">Teléfono de Contacto</label>
+              <input 
+                type="text" 
+                value={phone} 
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                placeholder="Ej. 0412-1234567"
                 required
               />
             </div>

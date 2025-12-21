@@ -39,19 +39,14 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
 
   return (
     <div className="space-y-8 animate-fadeIn pb-20">
-      {/* SECCIÓN CRÍTICA: DONDE SE PEGA LA URL */}
       <div className="bg-white rounded-3xl border-4 border-blue-500 shadow-2xl overflow-hidden relative">
-        <div className="absolute top-4 right-4 animate-bounce text-blue-500">
-           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M7 13l5 5 5-5M12 18V6"/></svg>
-        </div>
-
         <div className="p-8 border-b border-blue-50 flex items-center gap-4 bg-blue-600 text-white">
           <div className="p-3 bg-white text-blue-600 rounded-2xl shadow-lg">
             {ICONS.Settings}
           </div>
           <div>
-            <h3 className="text-xl font-black uppercase tracking-tight">Paso Final: Conexión con la Nube</h3>
-            <p className="text-sm text-blue-100 font-medium">Pega aquí el enlace que obtuviste de Google Apps Script</p>
+            <h3 className="text-xl font-black uppercase tracking-tight">Vinculación con Hoja: 13lZSsC...</h3>
+            <p className="text-sm text-blue-100 font-medium">Configura el motor de datos en la nube</p>
           </div>
         </div>
         
@@ -68,7 +63,7 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
                   type="text" 
                   value={scriptUrl}
                   onChange={(e) => setScriptUrl(e.target.value)}
-                  placeholder="https://script.google.com/macros/s/AKfycbw16W131ewey4bgxJjYalr5SVfGw3qEQjWwLfPvuvYKG7md_rsQD9MTxCkbBO9R114ncw/exec"
+                  placeholder="https://script.google.com/macros/s/.../exec"
                   className={`w-full p-6 bg-white border-4 rounded-3xl outline-none focus:ring-8 focus:ring-blue-100 font-mono text-sm transition-all shadow-inner ${
                     saveStatus === 'error' ? 'border-rose-400 bg-rose-50' : 'border-blue-200 focus:border-blue-500'
                   }`}
@@ -93,13 +88,13 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
 
             <div className="p-6 bg-white rounded-2xl border-2 border-blue-100 shadow-sm">
                <h4 className="font-black text-blue-800 text-xs uppercase mb-3 flex items-center gap-2">
-                 {ICONS.Alert} Instrucciones de Pegado:
+                 {ICONS.Alert} Pasos Críticos:
                </h4>
                <ol className="text-xs text-slate-600 space-y-2 list-decimal ml-4 font-medium">
-                 <li>Copia la URL completa que te dio Google (la que termina en <b>/exec</b>).</li>
-                 <li>Pégala en el cuadro blanco de arriba.</li>
-                 <li>Haz clic en el botón azul <b>"Vincular Sistema Ahora"</b>.</li>
-                 <li>Si aparece un cuadro de confirmación, dale a <b>"Aceptar"</b>.</li>
+                 <li>En Google Sheets, ve a <b>Extensiones > Apps Script</b>.</li>
+                 <li>Selecciona la función <b>INICIALIZAR_SISTEMA</b> y dale a <b>Ejecutar</b>.</li>
+                 <li>Dale a <b>Implementar > Nueva implementación</b> (Tipo: Aplicación Web, Acceso: Cualquier persona).</li>
+                 <li>Copia esa URL y pégala arriba.</li>
                </ol>
             </div>
           </div>

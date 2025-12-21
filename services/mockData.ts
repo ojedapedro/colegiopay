@@ -21,6 +21,7 @@ export const initialRepresentatives: Representative[] = [
     cedula: "12345678",
     firstName: "Juan",
     lastName: "Pérez",
+    phone: "0412-5555555",
     matricula: "mat-2025-26-12345678",
     students: [
       { id: "S1", fullName: "Miguel Pérez", level: Level.PRIMARIA, section: "A" },
