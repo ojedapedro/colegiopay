@@ -63,7 +63,7 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
                   type="text" 
                   value={scriptUrl}
                   onChange={(e) => setScriptUrl(e.target.value)}
-                  placeholder="https://script.google.com/macros/s/.../exec"
+                  placeholder="https://script.google.com/macros/s/AKfycbyu65OIIAHcp7RA1Lhalj5msa-IkZqiWNhOUpmLOXaLX6Kb2iLi4HlL58Rogml8WOcH/exec"
                   className={`w-full p-6 bg-white border-4 rounded-3xl outline-none focus:ring-8 focus:ring-blue-100 font-mono text-sm transition-all shadow-inner ${
                     saveStatus === 'error' ? 'border-rose-400 bg-rose-50' : 'border-blue-200 focus:border-blue-500'
                   }`}
