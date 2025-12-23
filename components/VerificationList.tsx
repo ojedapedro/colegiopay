@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { PaymentRecord, PaymentStatus, PaymentMethod } from '../types';
+import { PaymentRecord, PaymentStatus, PaymentMethod, Representative, LevelFees } from '../types';
 import { ICONS } from '../constants';
 import { 
   CreditCard, 
@@ -18,17 +18,20 @@ import {
   RefreshCw, 
   Globe,
   Info,
-  Hash
+  Hash,
+  ArrowRight
 } from 'lucide-react';
 import { sheetService } from '../services/googleSheets';
 
 interface Props {
   payments: PaymentRecord[];
+  representatives: Representative[];
+  fees: LevelFees;
   onVerify: (id: string, status: PaymentStatus) => void;
   onImportExternal?: (newPayments: PaymentRecord[]) => void;
 }
 
-const VerificationList: React.FC<Props> = ({ payments, onVerify, onImportExternal }) => {
+const VerificationList: React.FC<Props> = ({ payments, representatives, fees, onVerify, onImportExternal }) => {
   const [isSyncingExternal, setIsSyncingExternal] = useState(false);
   
   // Filtros
@@ -117,6 +120,21 @@ const VerificationList: React.FC<Props> = ({ payments, onVerify, onImportExterna
     } catch (_) {
       return false;
     }
+  };
+
+  const getRepresentativeStats = (cedula: string) => {
+    const rep = representatives.find(r => r.cedula === cedula);
+    if (!rep) return { currentBalance: 0, name: 'Desconocido' };
+
+    const totalDue = rep.students.reduce((sum, s) => sum + (fees[s.level] || 0), 0);
+    const totalPaid = payments
+      .filter(p => p.cedulaRepresentative === cedula && p.status === PaymentStatus.VERIFICADO)
+      .reduce((sum, p) => sum + p.amount, 0);
+    
+    return {
+      currentBalance: Math.max(0, totalDue - totalPaid),
+      name: `${rep.firstName} ${rep.lastName}`
+    };
   };
 
   const ReferenceTag: React.FC<{ reference: string }> = ({ reference }) => {
@@ -254,10 +272,9 @@ const VerificationList: React.FC<Props> = ({ payments, onVerify, onImportExterna
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50/80 text-slate-500 text-[11px] font-black uppercase tracking-[0.2em] border-b border-slate-100">
-                  <th className="px-8 py-6">Fecha / Origen</th>
-                  <th className="px-8 py-6">Identificación</th>
+                  <th className="px-8 py-6">Datos del Pago</th>
                   <th className="px-8 py-6">Instrumento / Referencia</th>
-                  <th className="px-8 py-6">Monto</th>
+                  <th className="px-8 py-6">Impacto en el Libro Maestro</th>
                   <th className="px-8 py-6 text-right">Acción</th>
                 </tr>
               </thead>
@@ -265,6 +282,8 @@ const VerificationList: React.FC<Props> = ({ payments, onVerify, onImportExterna
                 {pending.map((p) => {
                   const methodInfo = getMethodInfo(p.method);
                   const isExternal = p.observations.includes('OFICINA VIRTUAL');
+                  const { currentBalance, name } = getRepresentativeStats(p.cedulaRepresentative);
+                  const projectedBalance = Math.max(0, currentBalance - p.amount);
                   
                   return (
                     <tr key={p.id} className="group hover:bg-slate-50/80 transition-all duration-300">
@@ -272,16 +291,12 @@ const VerificationList: React.FC<Props> = ({ payments, onVerify, onImportExterna
                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 scale-y-0 group-hover:scale-y-100 transition-transform duration-300"></div>
                         <div className="flex flex-col">
                           <span className="text-sm font-black text-slate-800">{p.paymentDate}</span>
-                          <span className={`inline-flex items-center gap-1.5 text-[9px] font-black uppercase mt-2 px-2.5 py-1 rounded-full border w-fit ${isExternal ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                          <span className="text-xs font-bold text-slate-500 mt-1 uppercase">{name}</span>
+                          <span className="text-[10px] text-slate-400 font-mono mt-0.5">C.I. {p.cedulaRepresentative}</span>
+                          <span className={`inline-flex items-center gap-1.5 text-[9px] font-black uppercase mt-3 px-2.5 py-1 rounded-full border w-fit ${isExternal ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
                             {isExternal ? <Globe size={10} /> : <Info size={10} />}
                             {isExternal ? 'Oficina Virtual' : 'Caja Interna'}
                           </span>
-                        </div>
-                      </td>
-                      <td className="px-8 py-7">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold text-slate-700">C.I. {p.cedulaRepresentative}</span>
-                          <span className="text-[10px] text-slate-400 font-mono mt-1">ID-TRAN: {p.id.slice(-8)}</span>
                         </div>
                       </td>
                       <td className="px-8 py-7">
@@ -290,18 +305,34 @@ const VerificationList: React.FC<Props> = ({ payments, onVerify, onImportExterna
                             {methodInfo.icon} {p.method}
                           </div>
                           <ReferenceTag reference={p.reference} />
+                          <div className="mt-1">
+                             <span className="text-2xl font-black text-slate-900 tracking-tight">${p.amount.toFixed(2)}</span>
+                          </div>
                         </div>
                       </td>
                       <td className="px-8 py-7">
-                        <div className="flex flex-col">
-                          <span className="text-xl font-black text-slate-900 tracking-tight">${p.amount.toFixed(2)}</span>
-                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Total a Verificación</span>
+                        <div className="p-4 bg-slate-100/50 rounded-2xl border border-slate-200/60 flex flex-col gap-3 max-w-[200px]">
+                           <div>
+                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Saldo Actual</p>
+                             <p className="text-sm font-black text-slate-600">${currentBalance.toFixed(2)}</p>
+                           </div>
+                           <div className="flex justify-center text-slate-300">
+                             <ArrowRight size={14} className="rotate-90" />
+                           </div>
+                           <div>
+                             <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Saldo Proyectado</p>
+                             <p className="text-sm font-black text-emerald-600">${projectedBalance.toFixed(2)}</p>
+                           </div>
                         </div>
                       </td>
                       <td className="px-8 py-7">
                         <div className="flex items-center justify-end gap-3 translate-x-4 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-500">
                           <button 
-                            onClick={() => onVerify(p.id, PaymentStatus.VERIFICADO)}
+                            onClick={() => {
+                              if(confirm(`¿Confirmar verificación de $${p.amount}? El saldo de ${name} se actualizará de $${currentBalance} a $${projectedBalance}.`)) {
+                                onVerify(p.id, PaymentStatus.VERIFICADO);
+                              }
+                            }}
                             className="bg-emerald-600 text-white p-3.5 rounded-2xl hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-100 hover:-translate-y-1 active:translate-y-0"
                             title="Aprobar Pago"
                           >
@@ -314,11 +345,6 @@ const VerificationList: React.FC<Props> = ({ payments, onVerify, onImportExterna
                           >
                             <X size={20} strokeWidth={3} />
                           </button>
-                        </div>
-                        {/* Indicador visible para mobile o sin hover */}
-                        <div className="flex items-center justify-end gap-2 group-hover:hidden transition-all">
-                           <div className="w-2 h-2 rounded-full bg-blue-500/20 animate-pulse"></div>
-                           <span className="text-[9px] font-black text-slate-300 uppercase tracking-[0.2em]">Auditar</span>
                         </div>
                       </td>
                     </tr>
