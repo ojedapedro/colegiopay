@@ -20,7 +20,7 @@ export const sheetService = {
   },
 
   /**
-   * Obtiene todos los datos del Libro Maestro (Local/Privado)
+   * Obtiene datos del Libro Maestro
    */
   async fetchAll() {
     const url = this.getScriptUrl();
@@ -39,7 +39,7 @@ export const sheetService = {
       if (data.payments) {
         data.payments = data.payments.map((p: any) => ({
           ...p,
-          cedulaRepresentative: p["Cedula Representan"] || p.cedulaRepresen || p.cedulaRepresentative || p.cedula
+          cedulaRepresentative: String(p["Cedula Representan"] || p.cedulaRepresen || p.cedulaRepresentative || p.cedula || '0').replace('V-', '').replace('E-', '').trim()
         }));
       }
       
@@ -51,7 +51,7 @@ export const sheetService = {
   },
 
   /**
-   * Importa pagos desde la Oficina Virtual externa mapeando los campos según la captura de pantalla
+   * Importa pagos desde la hoja 'consolidado' de la Oficina Virtual
    */
   async fetchVirtualOfficePayments() {
     const url = this.getScriptUrl();
@@ -61,6 +61,7 @@ export const sheetService = {
       const syncUrl = new URL(url);
       syncUrl.searchParams.append('action', 'get_external_payments');
       syncUrl.searchParams.append('sheetId', VIRTUAL_OFFICE_SHEET_ID);
+      syncUrl.searchParams.append('sheetName', 'consolidado'); // Apuntamos a la hoja correcta según tu indicación
 
       const response = await fetch(syncUrl.toString(), {
         method: 'GET',
@@ -71,30 +72,35 @@ export const sheetService = {
       if (!response.ok) throw new Error('Error en respuesta de Oficina Virtual');
       
       const data = await response.json();
-      // El script puede devolver {payments: [...]} o directamente [...]
+      // Verificamos si los datos vienen en una propiedad 'payments', 'data' o si es el array directamente
       const rawPayments = Array.isArray(data) ? data : (data.payments || data.data || []);
       
       if (rawPayments.length === 0) return [];
 
       return rawPayments.map((p: any) => {
-        // Limpiar la cédula si viene con "V-"
+        // Normalización de Cédula (Remover V- o E-)
         let rawCedula = String(p["Cedula Representan"] || p.cedulaRepresen || p.cedulaRepresentative || p.cedula || '0');
         const cleanCedula = rawCedula.replace('V-', '').replace('E-', '').trim();
 
+        // Creamos un ID único usando Referencia + Timestamp para evitar duplicados falsos
+        const ref = String(p["Referencia"] || p.reference || '000000');
+        const ts = String(p["Timestamp"] || p.timestamp || Date.now());
+        const uniqueId = `EXT-${ref}-${ts.replace(/[:\s\-\/]/g, '')}`;
+
         return {
-          id: p.id || p["Referencia"] || `EXT-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-          timestamp: p.Timestamp || p.timestamp || new Date().toISOString(),
+          id: uniqueId,
+          timestamp: p["Timestamp"] || p.timestamp || new Date().toISOString(),
           paymentDate: p["Fecha Pago"] || p.paymentDate || new Date().toISOString().split('T')[0],
           cedulaRepresentative: cleanCedula,
           matricula: p["Matricula"] || p.matricula || 'N/A',
           level: p["Nivel"] || p.level || 'Primaria',
           method: p["Tipo Pago"] || p.method || 'Pago Móvil',
-          reference: String(p["Referencia"] || p.reference || '000000'),
-          amount: parseFloat(p["Monto"] || p.amount || 0),
+          reference: ref,
+          amount: parseFloat(String(p["Monto"] || p.amount || 0).replace(',', '.')),
           observations: `[OFICINA VIRTUAL] ${p["Observaciones"] || p.observations || ''}`,
           status: PaymentStatus.PENDIENTE,
-          type: p.type || 'TOTAL',
-          pendingBalance: parseFloat(p.pendingBalance || 0)
+          type: 'TOTAL',
+          pendingBalance: 0
         };
       });
     } catch (error) {
