@@ -64,6 +64,11 @@ const App: React.FC = () => {
     }
   }, []);
 
+  const handleImportExternal = (newExternalPayments: PaymentRecord[]) => {
+    const updatedPayments = [...newExternalPayments, ...payments];
+    updateData(users, representatives, updatedPayments, fees);
+  };
+
   const fetchCloudData = async () => {
     if (!sheetService.isValidConfig()) return;
     setIsSyncing(true);
@@ -215,7 +220,7 @@ const App: React.FC = () => {
           {activeTab === 'students' && <StudentRegistration onRegister={(r) => updateData(users, [...representatives, r], payments, fees)} representatives={representatives} />}
           {activeTab === 'payments' && <PaymentModule onPay={(p) => updateData(users, representatives, [p, ...payments], fees)} representatives={representatives} payments={payments} fees={fees} />}
           {activeTab === 'ledger' && <LedgerModule representatives={representatives} payments={payments} fees={fees} />}
-          {activeTab === 'verification' && <VerificationList payments={payments} onVerify={(id, status) => updateData(users, representatives, payments.map(p => p.id === id ? {...p, status} : p), fees)} />}
+          {activeTab === 'verification' && <VerificationList payments={payments} onVerify={(id, status) => updateData(users, representatives, payments.map(p => p.id === id ? {...p, status} : p), fees)} onImportExternal={handleImportExternal} />}
           {activeTab === 'reports' && <ReportsModule payments={payments} representatives={representatives} />}
           {activeTab === 'users' && <UserManagement users={users} onUpdateRole={(c, r) => updateData(users.map(u => u.cedula === c ? {...u, role: r} : u), representatives, payments, fees)} onDeleteUser={(c) => updateData(users.filter(u => u.cedula !== c), representatives, payments, fees)} />}
           {activeTab === 'settings' && <SettingsModule fees={fees} onUpdateFees={(f) => updateData(users, representatives, payments, f)} />}

@@ -1,6 +1,8 @@
 
 import { User, Representative, PaymentRecord, LevelFees, PaymentStatus } from '../types';
 
+const VIRTUAL_OFFICE_SHEET_ID = '17slRl7f9AKQgCEGF5jDLMGfmOc-unp1gXSRpYFGX1Eg';
+
 export const sheetService = {
   getScriptUrl() {
     return localStorage.getItem('school_script_url') || '';
@@ -29,7 +31,6 @@ export const sheetService = {
       if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
       const data = await response.json();
       
-      // Adaptar nombres de columnas si vienen del sheet (cedulaRepresen -> cedulaRepresentative)
       if (data.payments) {
         data.payments = data.payments.map((p: any) => ({
           ...p,
@@ -44,11 +45,39 @@ export const sheetService = {
     }
   },
 
+  /**
+   * Nueva función para importar pagos desde la Oficina Virtual externa
+   */
+  async fetchVirtualOfficePayments() {
+    const url = this.getScriptUrl();
+    if (!this.isValidConfig()) return [];
+
+    try {
+      // Enviamos el ID de la oficina virtual como parámetro a nuestro Apps Script
+      const response = await fetch(`${url}?action=get_external_payments&sheetId=${VIRTUAL_OFFICE_SHEET_ID}`, {
+        method: 'GET',
+        cache: 'no-cache'
+      });
+
+      if (!response.ok) return [];
+      const data = await response.json();
+      
+      // Sanitizar datos externos para que coincidan con el esquema interno
+      return (data.payments || []).map((p: any) => ({
+        ...p,
+        status: PaymentStatus.PENDIENTE, // Todo lo que viene de afuera debe ser verificado
+        observations: `[OFICINA VIRTUAL] ${p.observations || ''}`
+      }));
+    } catch (error) {
+      console.error('Error al sincronizar con Oficina Virtual:', error);
+      return [];
+    }
+  },
+
   async syncAll(data: { users: User[], representatives: Representative[], payments: PaymentRecord[], fees: LevelFees }) {
     const url = this.getScriptUrl();
     if (!this.isValidConfig()) return false;
 
-    // Reporte de CuentasPorCobrar con los nombres EXACTOS de la estructura inicializada
     const ledger = data.representatives.map(rep => {
       const totalDue = rep.students.reduce((sum, s) => sum + data.fees[s.level], 0);
       const totalPaid = data.payments
@@ -67,17 +96,6 @@ export const sheetService = {
       };
     });
 
-    // Mapeo de Representantes asegurando el campo phone
-    const mappedReps = data.representatives.map(r => ({
-      cedula: r.cedula,
-      firstName: r.firstName,
-      lastName: r.lastName,
-      phone: r.phone || '',
-      matricula: r.matricula,
-      students: r.students
-    }));
-
-    // Mapeo de Pagos con nombres EXACTOS para el Sheet
     const mappedPayments = data.payments.map(p => ({
       id: p.id,
       timestamp: p.timestamp,
@@ -99,24 +117,20 @@ export const sheetService = {
         action: 'sync_all', 
         data: {
           users: data.users,
-          representatives: mappedReps,
+          representatives: data.representatives,
           payments: mappedPayments,
           fees: data.fees,
           ledger: ledger
         } 
       };
 
-      // Usamos no-cors para evitar el preflight de Google y enviamos como texto plano
       await fetch(url, {
         method: 'POST',
         mode: 'no-cors',
-        headers: {
-          'Content-Type': 'text/plain'
-        },
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify(payload)
       });
       
-      console.log('Sincronización enviada a Google Sheets ID 13lZSsC...');
       return true;
     } catch (error) {
       console.error('Fallo crítico en sincronización:', error);

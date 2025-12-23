@@ -76,12 +76,12 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
                <h4 className="font-black text-slate-800 text-xs uppercase mb-3 flex items-center gap-2">
                  {ICONS.Alert} Instrucciones de Conexión:
                </h4>
-               <ol className="text-xs text-slate-600 space-y-2 list-decimal ml-4 font-medium">
+               <ul className="text-xs text-slate-600 space-y-3 list-disc ml-4 font-medium">
                  <li>En Google Sheets, vaya a <b>Extensiones &gt; Apps Script</b>.</li>
-                 <li>Seleccione la función <b>INICIALIZAR_SISTEMA</b> y ejecútela.</li>
-                 <li>Haga clic en <b>Implementar &gt; Nueva implementación</b> (Tipo: Aplicación Web).</li>
-                 <li>Copie la URL generada y péguela en el campo superior.</li>
-               </ol>
+                 <li>Asegúrese de que su script tenga permiso para abrir otros archivos usando el ID: <br/><code className="bg-slate-200 px-1 rounded">17slRl7f9AKQgCEGF5jDLMGfmOc-unp1gXSRpYFGX1Eg</code></li>
+                 <li>La función <code className="bg-slate-200 px-1">doGet(e)</code> debe manejar el parámetro <code className="bg-slate-200 px-1">action=get_external_payments</code>.</li>
+                 <li>Haga clic en <b>Implementar &gt; Nueva implementación</b> y pegue la URL arriba.</li>
+               </ul>
             </div>
           </div>
         </div>
