@@ -27,7 +27,6 @@ export const sheetService = {
     if (!this.isValidConfig()) return null;
 
     try {
-      // Usamos cache: 'no-store' para evitar datos viejos
       const response = await fetch(url, {
         method: 'GET',
         cache: 'no-store',
@@ -37,11 +36,10 @@ export const sheetService = {
       if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
       const data = await response.json();
       
-      // Normalización de campos para consistencia
       if (data.payments) {
         data.payments = data.payments.map((p: any) => ({
           ...p,
-          cedulaRepresentative: p.cedulaRepresen || p.cedulaRepresentative || p.cedula
+          cedulaRepresentative: p["Cedula Representan"] || p.cedulaRepresen || p.cedulaRepresentative || p.cedula
         }));
       }
       
@@ -53,14 +51,13 @@ export const sheetService = {
   },
 
   /**
-   * Nueva función para importar pagos desde la Oficina Virtual externa
+   * Importa pagos desde la Oficina Virtual externa mapeando los campos según la captura de pantalla
    */
   async fetchVirtualOfficePayments() {
     const url = this.getScriptUrl();
     if (!this.isValidConfig()) return [];
 
     try {
-      // Construcción robusta de URL con parámetros
       const syncUrl = new URL(url);
       syncUrl.searchParams.append('action', 'get_external_payments');
       syncUrl.searchParams.append('sheetId', VIRTUAL_OFFICE_SHEET_ID);
@@ -74,24 +71,32 @@ export const sheetService = {
       if (!response.ok) throw new Error('Error en respuesta de Oficina Virtual');
       
       const data = await response.json();
-      const rawPayments = data.payments || data.data || [];
+      // El script puede devolver {payments: [...]} o directamente [...]
+      const rawPayments = Array.isArray(data) ? data : (data.payments || data.data || []);
       
-      // Sanitizar datos externos para que coincidan con el esquema interno de ColegioPay
-      return rawPayments.map((p: any) => ({
-        id: p.id || `EXT-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-        timestamp: p.timestamp || new Date().toISOString(),
-        paymentDate: p.paymentDate || new Date().toISOString().split('T')[0],
-        cedulaRepresentative: p.cedulaRepresen || p.cedulaRepresentative || p.cedula || '0',
-        matricula: p.matricula || 'N/A',
-        level: p.level || 'Primaria',
-        method: p.method || 'Transferencia',
-        reference: p.reference || '000000',
-        amount: parseFloat(p.amount) || 0,
-        observations: `[OFICINA VIRTUAL] ${p.observations || p.concepto || ''}`,
-        status: PaymentStatus.PENDIENTE,
-        type: p.type || 'TOTAL',
-        pendingBalance: parseFloat(p.pendingBalance) || 0
-      }));
+      if (rawPayments.length === 0) return [];
+
+      return rawPayments.map((p: any) => {
+        // Limpiar la cédula si viene con "V-"
+        let rawCedula = String(p["Cedula Representan"] || p.cedulaRepresen || p.cedulaRepresentative || p.cedula || '0');
+        const cleanCedula = rawCedula.replace('V-', '').replace('E-', '').trim();
+
+        return {
+          id: p.id || p["Referencia"] || `EXT-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+          timestamp: p.Timestamp || p.timestamp || new Date().toISOString(),
+          paymentDate: p["Fecha Pago"] || p.paymentDate || new Date().toISOString().split('T')[0],
+          cedulaRepresentative: cleanCedula,
+          matricula: p["Matricula"] || p.matricula || 'N/A',
+          level: p["Nivel"] || p.level || 'Primaria',
+          method: p["Tipo Pago"] || p.method || 'Pago Móvil',
+          reference: String(p["Referencia"] || p.reference || '000000'),
+          amount: parseFloat(p["Monto"] || p.amount || 0),
+          observations: `[OFICINA VIRTUAL] ${p["Observaciones"] || p.observations || ''}`,
+          status: PaymentStatus.PENDIENTE,
+          type: p.type || 'TOTAL',
+          pendingBalance: parseFloat(p.pendingBalance || 0)
+        };
+      });
     } catch (error) {
       console.error('Fallo de conexión con Oficina Virtual:', error);
       return [];
@@ -102,7 +107,6 @@ export const sheetService = {
     const url = this.getScriptUrl();
     if (!this.isValidConfig()) return false;
 
-    // Generar Ledger para sincronización
     const ledger = data.representatives.map(rep => {
       const totalDue = rep.students.reduce((sum, s) => sum + (data.fees[s.level] || 0), 0);
       const totalPaid = data.payments
@@ -133,7 +137,6 @@ export const sheetService = {
         } 
       };
 
-      // Enviar como text/plain para evitar problemas de pre-flight CORS en Apps Script
       await fetch(url, {
         method: 'POST',
         mode: 'no-cors',
