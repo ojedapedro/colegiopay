@@ -81,7 +81,6 @@ const App: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
-      
       const savedReps = localStorage.getItem('school_reps_local');
       const savedPays = localStorage.getItem('school_pays_local');
       const savedUsers = localStorage.getItem('school_users_local');
@@ -116,16 +115,10 @@ const App: React.FC = () => {
           setCloudStatus('offline');
         }
       }
-      
       setIsLoading(false);
     };
-
     loadData();
   }, []);
-
-  useEffect(() => {
-    if (currentUser) localStorage.setItem('school_session', JSON.stringify(currentUser));
-  }, [currentUser]);
 
   const isAdmin = currentUser?.role === UserRole.ADMIN;
 
@@ -142,199 +135,104 @@ const App: React.FC = () => {
     setActiveTab('dashboard');
   };
 
-  const handleRegisterUser = (user: User) => {
-    const newUsers = [...users.filter(u => u.cedula !== user.cedula), user];
-    updateData(newUsers, representatives, payments, fees);
-    setCurrentUser(user);
-  };
-
-  const handleUpdateUserRole = (cedula: string, newRole: UserRole) => {
-    const newUsers = users.map(u => u.cedula === cedula ? { ...u, role: newRole } : u);
-    updateData(newUsers, representatives, payments, fees);
-    if (currentUser?.cedula === cedula) {
-      setCurrentUser(prev => prev ? { ...prev, role: newRole } : null);
-    }
-  };
-
-  const handleDeleteUser = (cedula: string) => {
-    if (currentUser?.cedula === cedula) return;
-    const newUsers = users.filter(u => u.cedula !== cedula);
-    updateData(newUsers, representatives, payments, fees);
-  };
-
-  const handleAddStudent = (repData: Representative) => {
-    let newReps = [...representatives];
-    const existingIndex = newReps.findIndex(r => r.cedula === repData.cedula);
-    if (existingIndex > -1) {
-      newReps[existingIndex] = {
-        ...newReps[existingIndex],
-        students: [...newReps[existingIndex].students, ...repData.students]
-      };
-    } else {
-      newReps.push(repData);
-    }
-    updateData(users, newReps, payments, fees);
-  };
-
-  const handleRegisterPayment = (payment: PaymentRecord) => {
-    const newPays = [payment, ...payments];
-    updateData(users, representatives, newPays, fees);
-  };
-
-  const handleVerifyPayment = (paymentId: string, status: PaymentStatus) => {
-    const newPays = payments.map(p => p.id === paymentId ? { ...p, status } : p);
-    updateData(users, representatives, newPays, fees);
-  };
-
-  const handleUpdateFees = (newFees: LevelFees) => {
-    updateData(users, representatives, payments, newFees);
-  };
-
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white p-8 text-center">
-        <img src={INSTITUTION_LOGO} alt="Logo" className="w-24 h-24 mb-8 object-contain" />
-        <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-8"></div>
-        <h2 className="text-2xl font-black mb-2 uppercase tracking-tight">Sincronizando Sistema</h2>
-        <p className="text-slate-400 font-medium">Estableciendo conexión con la base de datos escolar...</p>
+      <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center text-white p-8">
+        <img src={INSTITUTION_LOGO} alt="Logo" className="w-32 h-32 mb-8 object-contain animate-pulse" />
+        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Cargando Sistema...</p>
       </div>
     );
   }
 
   if (!currentUser) {
-    return <Auth users={users} onLogin={handleLogin} onRegister={handleRegisterUser} />;
+    return <Auth users={users} onLogin={handleLogin} onRegister={(u) => updateData([...users, u], representatives, payments, fees)} />;
   }
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-[#f8fafc]">
+    <div className="flex flex-col md:flex-row min-h-screen bg-[#f1f5f9]">
       <aside className="w-full md:w-72 bg-[#0f172a] text-white flex flex-col shadow-2xl z-20">
         <div className="p-8 border-b border-slate-800">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg overflow-hidden p-1">
+            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center p-1.5 shadow-xl">
               <img src={INSTITUTION_LOGO} alt="Logo" className="w-full h-full object-contain" />
             </div>
             <div>
               <h1 className="text-lg font-black tracking-tighter uppercase leading-none">Colegio<span className="text-blue-500">Pay</span></h1>
-              <span className={`text-[9px] font-black uppercase tracking-[0.2em] ${cloudStatus === 'online' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {cloudStatus === 'online' ? 'Sincronizado' : 'Modo Offline'}
+              <span className={`text-[9px] font-black uppercase tracking-widest ${cloudStatus === 'online' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {cloudStatus === 'online' ? 'Online' : 'Offline'}
               </span>
             </div>
           </div>
         </div>
         
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-4 mb-2 mt-4">Gestión Principal</p>
+        <nav className="flex-1 p-4 space-y-1">
           <NavItem active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={ICONS.Dashboard} label="Dashboard" />
-          
-          {isAdmin && (
-            <>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-4 mb-2 mt-6">Control Académico</p>
-              <NavItem active={activeTab === 'students'} onClick={() => setActiveTab('students')} icon={ICONS.Registration} label="Registro Alumnos" />
-            </>
-          )}
-
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-4 mb-2 mt-6">Administración</p>
+          {isAdmin && <NavItem active={activeTab === 'students'} onClick={() => setActiveTab('students')} icon={ICONS.Registration} label="Registro Alumnos" />}
           <NavItem active={activeTab === 'payments'} onClick={() => setActiveTab('payments')} icon={ICONS.Payments} label="Caja y Cobros" />
           <NavItem active={activeTab === 'ledger'} onClick={() => setActiveTab('ledger')} icon={ICONS.Search} label="Cuentas por Cobrar" />
-          <NavItem 
-            active={activeTab === 'verification'} 
-            onClick={() => setActiveTab('verification')} 
-            icon={ICONS.Verify} 
-            label="Verificación" 
-            badge={payments.filter(p => p.status === PaymentStatus.PENDIENTE).length}
-          />
-          <NavItem active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} icon={ICONS.Reports} label="Reportes PDF" />
-
+          <NavItem active={activeTab === 'verification'} onClick={() => setActiveTab('verification')} icon={ICONS.Verify} label="Verificación" />
+          <NavItem active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} icon={ICONS.Reports} label="Reportes" />
           {isAdmin && (
             <>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-4 mb-2 mt-6">Configuración</p>
               <NavItem active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={ICONS.Users} label="Usuarios" />
-              <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={ICONS.Settings} label="Parámetros" />
+              <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={ICONS.Settings} label="Ajustes" />
             </>
           )}
         </nav>
 
         <div className="p-6 bg-[#020617] border-t border-slate-800">
-          <div className="flex items-center gap-3 mb-6 px-2">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-white shadow-lg border border-blue-500/50">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-white">
               {currentUser.fullName.charAt(0)}
             </div>
             <div className="overflow-hidden">
-              <p className="text-sm font-bold truncate text-slate-100">{currentUser.fullName}</p>
-              <p className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">{currentUser.role}</p>
+              <p className="text-sm font-bold truncate">{currentUser.fullName}</p>
+              <p className="text-[10px] text-slate-500 font-bold uppercase">{currentUser.role}</p>
             </div>
           </div>
-          <button 
-            onClick={handleLogout}
-            className="flex items-center gap-3 w-full p-3 text-slate-400 hover:text-white hover:bg-rose-600/20 rounded-xl transition-all font-bold text-xs border border-transparent hover:border-rose-500/20"
-          >
-            {ICONS.Exit}
-            <span>Cerrar Sesión</span>
+          <button onClick={handleLogout} className="flex items-center gap-3 w-full p-3 text-slate-400 hover:text-white hover:bg-rose-600/20 rounded-xl transition-all font-bold text-xs">
+            {ICONS.Exit} <span>Cerrar Sesión</span>
           </button>
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto max-h-screen relative p-6 md:p-10">
+      <main className="flex-1 overflow-y-auto max-h-screen p-8">
         <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
-            <h2 className="text-3xl font-black text-slate-800 tracking-tight capitalize">
-              {activeTab === 'ledger' ? 'Cuentas por Cobrar' : 
-               activeTab === 'students' ? 'Registro de Matrícula' :
-               activeTab === 'users' ? 'Personal Administrativo' : 
-               activeTab === 'dashboard' ? 'Panel de Control' : activeTab}
-            </h2>
-            <div className="flex items-center gap-2 mt-1">
-              <span className={`flex h-2 w-2 rounded-full ${cloudStatus === 'online' ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`}></span>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-                {cloudStatus === 'online' ? 'Conectado a la Nube' : 'Trabajando Offline'}
-              </p>
-            </div>
-          </div>
-          
+          <h2 className="text-3xl font-black text-slate-800 tracking-tight capitalize">
+            {activeTab === 'ledger' ? 'Cuentas por Cobrar' : activeTab === 'students' ? 'Registro Escolar' : activeTab}
+          </h2>
           <div className="flex items-center gap-3">
-             {isSyncing && <span className="text-[10px] font-black text-blue-600 uppercase animate-pulse">Sincronizando...</span>}
-             <button 
-              onClick={fetchCloudData}
-              className="p-3 bg-white border border-slate-200 rounded-2xl shadow-sm text-slate-400 hover:text-blue-600 transition-all hover:shadow-md active:scale-95"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 16h5v5"></path></svg>
-            </button>
+             {isSyncing && <span className="text-[10px] font-black text-blue-600 animate-pulse">SINCRONIZANDO...</span>}
+             <button onClick={fetchCloudData} className="p-3 bg-white border border-slate-200 rounded-2xl shadow-sm text-slate-400 hover:text-blue-600 transition-all">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 16h5v5"></path></svg>
+             </button>
           </div>
         </header>
 
-        <div className="max-w-7xl mx-auto space-y-10 pb-20">
+        <div className="max-w-7xl mx-auto space-y-10">
           {activeTab === 'dashboard' && <Dashboard representatives={representatives} payments={payments} />}
-          {activeTab === 'students' && <StudentRegistration onRegister={handleAddStudent} representatives={representatives} />}
-          {activeTab === 'payments' && <PaymentModule onPay={handleRegisterPayment} representatives={representatives} payments={payments} fees={fees} />}
+          {activeTab === 'students' && <StudentRegistration onRegister={(r) => updateData(users, [...representatives, r], payments, fees)} representatives={representatives} />}
+          {activeTab === 'payments' && <PaymentModule onPay={(p) => updateData(users, representatives, [p, ...payments], fees)} representatives={representatives} payments={payments} fees={fees} />}
           {activeTab === 'ledger' && <LedgerModule representatives={representatives} payments={payments} fees={fees} />}
-          {activeTab === 'verification' && <VerificationList payments={payments} onVerify={handleVerifyPayment} />}
+          {activeTab === 'verification' && <VerificationList payments={payments} onVerify={(id, status) => updateData(users, representatives, payments.map(p => p.id === id ? {...p, status} : p), fees)} />}
           {activeTab === 'reports' && <ReportsModule payments={payments} representatives={representatives} />}
-          {activeTab === 'users' && <UserManagement users={users} onUpdateRole={handleUpdateUserRole} onDeleteUser={handleDeleteUser} />}
-          {activeTab === 'settings' && <SettingsModule fees={fees} onUpdateFees={handleUpdateFees} />}
+          {activeTab === 'users' && <UserManagement users={users} onUpdateRole={(c, r) => updateData(users.map(u => u.cedula === c ? {...u, role: r} : u), representatives, payments, fees)} onDeleteUser={(c) => updateData(users.filter(u => u.cedula !== c), representatives, payments, fees)} />}
+          {activeTab === 'settings' && <SettingsModule fees={fees} onUpdateFees={(f) => updateData(users, representatives, payments, f)} />}
         </div>
       </main>
     </div>
   );
 };
 
-const NavItem: React.FC<{ active: boolean; onClick: () => void; icon: React.ReactNode; label: string; badge?: number }> = ({ active, onClick, icon, label, badge }) => (
+const NavItem: React.FC<{ active: boolean; onClick: () => void; icon: React.ReactNode; label: string }> = ({ active, onClick, icon, label }) => (
   <button
     onClick={onClick}
-    className={`flex items-center justify-between w-full p-3.5 rounded-xl transition-all duration-200 group ${
-      active 
-        ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' 
-        : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+    className={`flex items-center gap-3 w-full p-4 rounded-xl transition-all font-bold text-sm ${
+      active ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
     }`}
   >
-    <div className="flex items-center gap-3">
-      <span className={`transition-colors duration-200 ${active ? 'text-white' : 'text-slate-600 group-hover:text-blue-400'}`}>{icon}</span>
-      <span className="font-bold text-sm tracking-tight">{label}</span>
-    </div>
-    {badge !== undefined && badge > 0 && (
-      <span className={`flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-black rounded-lg ${active ? 'bg-white text-blue-600' : 'bg-rose-500 text-white animate-pulse'}`}>
-        {badge}
-      </span>
-    )}
+    {icon} <span>{label}</span>
   </button>
 );
 
