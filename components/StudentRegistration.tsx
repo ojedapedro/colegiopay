@@ -1,14 +1,15 @@
 
 import React, { useState } from 'react';
-import { Representative, Level, Student } from '../types';
+import { Representative, Level, Student, LevelFees, DEFAULT_LEVEL_FEES } from '../types';
 import { ICONS } from '../constants';
 
 interface Props {
   representatives: Representative[];
   onRegister: (rep: Representative) => void;
+  fees?: LevelFees; // Recibir fees opcionalmente para cargo inicial
 }
 
-const StudentRegistration: React.FC<Props> = ({ representatives, onRegister }) => {
+const StudentRegistration: React.FC<Props> = ({ representatives, onRegister, fees = DEFAULT_LEVEL_FEES }) => {
   const [cedula, setCedula] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -43,13 +44,20 @@ const StudentRegistration: React.FC<Props> = ({ representatives, onRegister }) =
     const nextYearShort = (currentYear + 1).toString().slice(-2);
     const matricula = `mat-${currentYear}-${nextYearShort}-${cedula}`;
 
+    // Cargo inicial del mes en curso
+    const initialDebt = addedStudents.reduce((sum, s) => sum + (fees[s.level] || 0), 0);
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+
     const newRep: Representative = {
       cedula,
       firstName,
       lastName,
       phone,
       matricula,
-      students: addedStudents
+      students: addedStudents,
+      totalAccruedDebt: initialDebt,
+      lastAccrualMonth: currentMonthKey
     };
 
     onRegister(newRep);
@@ -59,7 +67,7 @@ const StudentRegistration: React.FC<Props> = ({ representatives, onRegister }) =
     setLastName('');
     setPhone('');
     setAddedStudents([]);
-    alert(`Registro Exitoso. Matrícula: ${matricula}`);
+    alert(`Registro Exitoso. Matrícula: ${matricula}. Cargo inicial de $${initialDebt.toFixed(2)} aplicado.`);
   };
 
   return (

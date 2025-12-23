@@ -58,6 +58,8 @@ export interface Representative {
   phone: string;
   matricula: string;
   students: Student[];
+  totalAccruedDebt: number; // Suma histórica de mensualidades cargadas
+  lastAccrualMonth?: string; // Formato "YYYY-MM" para evitar cobros duplicados
 }
 
 export interface PaymentRecord {

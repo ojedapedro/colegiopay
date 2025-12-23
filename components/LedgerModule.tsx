@@ -2,8 +2,7 @@
 import React, { useState } from 'react';
 import { Representative, PaymentRecord, LevelFees, PaymentStatus } from '../types';
 import { ICONS } from '../constants';
-// Added missing Check import
-import { ChevronDown, ChevronUp, History, Receipt, Info, Check } from 'lucide-react';
+import { ChevronDown, ChevronUp, History, Receipt, Info, Check, Calendar, AlertCircle } from 'lucide-react';
 
 interface Props {
   representatives: Representative[];
@@ -26,7 +25,8 @@ const LedgerModule: React.FC<Props> = ({ representatives, payments, fees }) => {
 
   const getLedgerData = () => {
     return representatives.map(rep => {
-      const totalDue = rep.students.reduce((sum, s) => sum + (fees[s.level] || 0), 0);
+      // Deuda acumulada del registro
+      const totalDue = rep.totalAccruedDebt || 0;
       
       const verifiedPayments = payments.filter(p => p.cedulaRepresentative === rep.cedula && p.status === PaymentStatus.VERIFICADO);
       const pendingPayments = payments.filter(p => p.cedulaRepresentative === rep.cedula && p.status === PaymentStatus.PENDIENTE);
@@ -61,7 +61,7 @@ const LedgerModule: React.FC<Props> = ({ representatives, payments, fees }) => {
         
         <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-12">
           <div className="space-y-2">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] ml-1">Capital Exigible Pendiente</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] ml-1">Capital Exigible Pendiente (Acumulado)</p>
             <div className="flex items-baseline gap-4">
                <p className="text-6xl font-black text-white tracking-tighter">${globalDebt.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                <div className="flex flex-col">
@@ -76,7 +76,7 @@ const LedgerModule: React.FC<Props> = ({ representatives, payments, fees }) => {
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Vencimiento Mes</p>
               <div className="flex items-center gap-4">
                 <div className={`p-2.5 rounded-xl ${isUrgent ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-700 text-slate-400'}`}>
-                  {ICONS.Pending}
+                  <Calendar size={18} />
                 </div>
                 <p className={`text-2xl font-black ${isUrgent ? 'text-rose-400' : 'text-white'}`}>
                   {daysLeft} Días
@@ -105,7 +105,7 @@ const LedgerModule: React.FC<Props> = ({ representatives, payments, fees }) => {
              </div>
              <div>
                 <h3 className="text-xl font-black text-slate-800 tracking-tight uppercase">Libro Maestro Conciliado</h3>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Saldos actualizados según verificación</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Saldos históricos basados en devengos mensuales</p>
              </div>
           </div>
         </div>
@@ -115,7 +115,7 @@ const LedgerModule: React.FC<Props> = ({ representatives, payments, fees }) => {
             <thead>
               <tr className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
                 <th className="px-8 py-6">Representante / Grupo Familiar</th>
-                <th className="px-8 py-6 text-center">Total Arancel</th>
+                <th className="px-8 py-6 text-center">Deuda Histórica Acum.</th>
                 <th className="px-8 py-6 text-center">Abonos Verificados</th>
                 <th className="px-8 py-6 text-center">Saldo Restante</th>
                 <th className="px-8 py-6 text-right">Detalle</th>
@@ -127,7 +127,12 @@ const LedgerModule: React.FC<Props> = ({ representatives, payments, fees }) => {
                   <tr className={`transition-all hover:bg-slate-50/80 ${item.isCritical ? 'bg-rose-50/10' : ''} ${expandedRep === item.cedula ? 'bg-blue-50/30' : ''}`}>
                     <td className="px-8 py-8">
                       <div className="flex flex-col">
-                        <span className="text-base font-black text-slate-800 tracking-tight">{item.firstName} {item.lastName}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-base font-black text-slate-800 tracking-tight">{item.firstName} {item.lastName}</span>
+                          {item.lastAccrualMonth && (
+                            <span className="text-[8px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded uppercase font-black">Cobro: {item.lastAccrualMonth}</span>
+                          )}
+                        </div>
                         <span className="text-[10px] text-slate-400 font-mono mt-0.5">C.I. {item.cedula}</span>
                         <div className="mt-4 flex flex-wrap gap-1.5">
                           {item.students.map((s, idx) => (
@@ -139,7 +144,8 @@ const LedgerModule: React.FC<Props> = ({ representatives, payments, fees }) => {
                       </div>
                     </td>
                     <td className="px-8 py-8 text-center">
-                      <p className="text-sm font-black text-slate-400">${item.totalDue.toFixed(2)}</p>
+                      <p className="text-sm font-black text-slate-500 tracking-tight">${item.totalDue.toFixed(2)}</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">Total de mensualidades</p>
                     </td>
                     <td className="px-8 py-8 text-center">
                       <div className="flex flex-col items-center gap-1">
@@ -174,40 +180,71 @@ const LedgerModule: React.FC<Props> = ({ representatives, payments, fees }) => {
                     <tr className="bg-slate-50/50">
                       <td colSpan={5} className="px-12 py-8">
                         <div className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-inner space-y-6">
-                           <div className="flex items-center gap-3">
-                              <History size={18} className="text-blue-500" />
-                              <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">Historial de Conciliación</h4>
+                           <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <History size={18} className="text-blue-500" />
+                                <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">Estado de Cuenta Detallado</h4>
+                              </div>
+                              <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase bg-slate-100 px-3 py-1.5 rounded-xl">
+                                <AlertCircle size={12} />
+                                La deuda total incluye cargos desde la inscripción inicial.
+                              </div>
                            </div>
                            
-                           {item.verifiedHistory.length === 0 ? (
-                             <div className="p-10 border-2 border-dashed border-slate-100 rounded-3xl text-center">
-                               <p className="text-xs font-bold text-slate-400 uppercase italic">No se registran abonos verificados para este representante.</p>
-                             </div>
-                           ) : (
-                             <div className="space-y-3">
-                               {item.verifiedHistory.sort((a,b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()).map((p) => (
-                                 <div key={p.id} className="flex items-center justify-between p-5 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-emerald-200 hover:bg-emerald-50/30 transition-all">
-                                   <div className="flex items-center gap-4">
-                                      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-emerald-500 border border-emerald-100 shadow-sm">
-                                         <Check size={18} strokeWidth={3} />
-                                      </div>
-                                      <div>
-                                         <p className="text-xs font-black text-slate-800">{p.paymentDate}</p>
-                                         <p className="text-[10px] font-bold text-slate-400 uppercase">{p.method} • Ref: {p.reference}</p>
-                                      </div>
-                                   </div>
-                                   <div className="text-right">
-                                      <p className="text-sm font-black text-emerald-600">-${p.amount.toFixed(2)}</p>
-                                      <p className="text-[9px] font-black text-emerald-400 uppercase tracking-tighter">Restado del Saldo</p>
-                                   </div>
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                             {/* Historial de Pagos */}
+                             <div className="space-y-4">
+                               <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Abonos Realizados</h5>
+                               {item.verifiedHistory.length === 0 ? (
+                                 <div className="p-8 border-2 border-dashed border-slate-100 rounded-3xl text-center">
+                                   <p className="text-xs font-bold text-slate-400 uppercase italic">No se registran abonos verificados.</p>
                                  </div>
-                               ))}
+                               ) : (
+                                 <div className="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+                                   {item.verifiedHistory.sort((a,b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()).map((p) => (
+                                     <div key={p.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-emerald-200 hover:bg-emerald-50/30 transition-all">
+                                       <div className="flex items-center gap-4">
+                                          <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-emerald-500 border border-emerald-100 shadow-sm">
+                                             <Check size={18} strokeWidth={3} />
+                                          </div>
+                                          <div>
+                                             <p className="text-xs font-black text-slate-800">{p.paymentDate}</p>
+                                             <p className="text-[10px] font-bold text-slate-400 uppercase">{p.method} • Ref: {p.reference}</p>
+                                          </div>
+                                       </div>
+                                       <div className="text-right">
+                                          <p className="text-sm font-black text-emerald-600">-${p.amount.toFixed(2)}</p>
+                                       </div>
+                                     </div>
+                                   ))}
+                                 </div>
+                               )}
                              </div>
-                           )}
+
+                             {/* Resumen Alumnos */}
+                             <div className="space-y-4">
+                               <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Resumen de Cuotas Familiares</h5>
+                               <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 space-y-4">
+                                 {item.students.map((s, idx) => (
+                                   <div key={idx} className="flex justify-between items-center text-sm font-bold border-b border-slate-200 pb-3 last:border-0 last:pb-0">
+                                      <div>
+                                        <p className="text-slate-700">{s.fullName}</p>
+                                        <p className="text-[9px] text-blue-500 uppercase">{s.level}</p>
+                                      </div>
+                                      <p className="text-slate-400">${fees[s.level]?.toFixed(2)} / mes</p>
+                                   </div>
+                                 ))}
+                                 <div className="pt-4 mt-4 border-t border-slate-200 flex justify-between items-center font-black text-slate-800 uppercase text-xs tracking-widest">
+                                    <span>Total Cuota Mensual:</span>
+                                    <span className="text-blue-600 text-lg">${item.students.reduce((sum, s) => sum + (fees[s.level] || 0), 0).toFixed(2)}</span>
+                                 </div>
+                               </div>
+                             </div>
+                           </div>
                            
-                           <div className="pt-4 flex items-center gap-4 text-xs font-bold text-slate-400">
+                           <div className="pt-4 flex items-center gap-4 text-xs font-bold text-slate-400 border-t border-slate-100">
                               <Info size={14} />
-                              <p>Solo los pagos con estado <span className="text-emerald-500">VERIFICADO</span> afectan el balance neto en este módulo.</p>
+                              <p>El sistema genera cobros automáticos el primer día de cada mes calendario para todos los alumnos activos.</p>
                            </div>
                         </div>
                       </td>

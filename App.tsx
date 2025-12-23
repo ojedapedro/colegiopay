@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Level, 
   Representative, 
@@ -12,7 +12,7 @@ import {
   UserRole
 } from './types';
 import { ICONS } from './constants';
-import { ChevronDown, ChevronUp, ShieldCheck, LayoutGrid, ClipboardList, Wallet, FileBarChart, Settings, Users, UserPlus } from 'lucide-react';
+import { ChevronDown, ChevronUp, ShieldCheck, LayoutGrid, ClipboardList, Wallet, FileBarChart, Settings, Users, UserPlus, Bell } from 'lucide-react';
 import { initialRepresentatives, initialPayments, initialUsers } from './services/mockData';
 import { sheetService } from './services/googleSheets';
 
@@ -41,6 +41,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [cloudStatus, setCloudStatus] = useState<'online' | 'offline' | 'pending'>('pending');
+  const [accrualNotice, setAccrualNotice] = useState<string | null>(null);
 
   const updateData = useCallback(async (newUsers: User[], newReps: Representative[], newPays: PaymentRecord[], newFees: LevelFees) => {
     setUsers(newUsers);
@@ -64,6 +65,34 @@ const App: React.FC = () => {
       setCloudStatus(success ? 'online' : 'offline');
       setIsSyncing(false);
     }
+  }, []);
+
+  // Función crítica: Devengo Mensual de Deuda
+  const applyMonthlyAccrual = useCallback((currentReps: Representative[], currentFees: LevelFees) => {
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+    
+    let updated = false;
+    const newReps = currentReps.map(rep => {
+      if (rep.lastAccrualMonth !== currentMonthKey) {
+        // Calcular lo que debe por este mes (suma de todos sus alumnos)
+        const monthlyTotal = rep.students.reduce((sum, student) => sum + (currentFees[student.level] || 0), 0);
+        updated = true;
+        return {
+          ...rep,
+          totalAccruedDebt: (rep.totalAccruedDebt || 0) + monthlyTotal,
+          lastAccrualMonth: currentMonthKey
+        };
+      }
+      return rep;
+    });
+
+    if (updated) {
+      setAccrualNotice(`Se han cargado las mensualidades correspondientes a ${currentMonthKey}`);
+      setTimeout(() => setAccrualNotice(null), 10000);
+      return newReps;
+    }
+    return null;
   }, []);
 
   const handleImportExternal = (newExternalPayments: PaymentRecord[]) => {
@@ -98,25 +127,47 @@ const App: React.FC = () => {
       const localPays = savedPays ? JSON.parse(savedPays) : initialPayments;
       const localFees = savedFees ? JSON.parse(savedFees) : DEFAULT_LEVEL_FEES;
 
-      setUsers(localUsers);
-      setRepresentatives(localReps);
-      setPayments(localPays);
-      setFees(localFees);
+      // Aplicar lógica de cobro mensual antes de setear estado
+      const accruedReps = applyMonthlyAccrual(localReps, localFees);
+      
+      const finalReps = accruedReps || localReps;
+      const finalPays = localPays;
+      const finalFees = localFees;
+      const finalUsers = localUsers;
+
+      setUsers(finalUsers);
+      setRepresentatives(finalReps);
+      setPayments(finalPays);
+      setFees(finalFees);
 
       const savedSession = localStorage.getItem('school_session');
       if (savedSession) {
         const parsed = JSON.parse(savedSession);
-        const found = localUsers.find((u: User) => u.cedula === parsed.cedula);
+        const found = finalUsers.find((u: User) => u.cedula === parsed.cedula);
         setCurrentUser(found || parsed);
+      }
+
+      // Sincronizar si hubo cambios por devengo
+      if (accruedReps) {
+        updateData(finalUsers, finalReps, finalPays, finalFees);
       }
 
       if (sheetService.isValidConfig()) {
         const cloudData = await sheetService.fetchAll();
         if (cloudData && !cloudData.error) {
-          if (cloudData.users) setUsers(cloudData.users);
-          if (cloudData.representatives) setRepresentatives(cloudData.representatives);
-          if (cloudData.payments) setPayments(cloudData.payments);
-          if (cloudData.fees) setFees(cloudData.fees);
+          // Si descargamos de la nube, también aplicamos el devengo por si la nube está atrasada
+          const cloudReps = cloudData.representatives || finalReps;
+          const cloudFees = cloudData.fees || finalFees;
+          const accruedCloudReps = applyMonthlyAccrual(cloudReps, cloudFees);
+          
+          if (accruedCloudReps) {
+            updateData(cloudData.users || finalUsers, accruedCloudReps, cloudData.payments || finalPays, cloudFees);
+          } else {
+            if (cloudData.users) setUsers(cloudData.users);
+            if (cloudData.representatives) setRepresentatives(cloudData.representatives);
+            if (cloudData.payments) setPayments(cloudData.payments);
+            if (cloudData.fees) setFees(cloudData.fees);
+          }
           setCloudStatus('online');
         } else {
           setCloudStatus('offline');
@@ -125,7 +176,7 @@ const App: React.FC = () => {
       setIsLoading(false);
     };
     loadData();
-  }, []);
+  }, [applyMonthlyAccrual]);
 
   const isAdmin = currentUser?.role === UserRole.ADMIN;
 
@@ -228,6 +279,13 @@ const App: React.FC = () => {
       </aside>
 
       <main className="flex-1 overflow-y-auto max-h-screen p-8">
+        {accrualNotice && (
+          <div className="mb-6 bg-blue-600 text-white p-4 rounded-2xl shadow-xl flex items-center gap-4 animate-slideDown">
+            <Bell className="animate-bounce" size={20} />
+            <p className="text-sm font-bold">{accrualNotice}</p>
+          </div>
+        )}
+
         <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
             <h2 className="text-3xl font-black text-slate-800 tracking-tight capitalize">
