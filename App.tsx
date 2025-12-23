@@ -12,6 +12,7 @@ import {
   UserRole
 } from './types';
 import { ICONS } from './constants';
+import { ChevronDown, ChevronUp, ShieldCheck, LayoutGrid, ClipboardList, Wallet, FileBarChart, Settings, Users, UserPlus } from 'lucide-react';
 import { initialRepresentatives, initialPayments, initialUsers } from './services/mockData';
 import { sheetService } from './services/googleSheets';
 
@@ -30,6 +31,7 @@ const INSTITUTION_LOGO = "https://i.ibb.co/FbHJbvVT/images.png";
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'students' | 'payments' | 'verification' | 'reports' | 'users' | 'settings' | 'ledger'>('dashboard');
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
   
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -171,45 +173,76 @@ const App: React.FC = () => {
           </div>
         </div>
         
-        <nav className="flex-1 p-4 space-y-1">
-          <NavItem active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={ICONS.Dashboard} label="Dashboard" />
-          {isAdmin && <NavItem active={activeTab === 'students'} onClick={() => setActiveTab('students')} icon={ICONS.Registration} label="Registro Alumnos" />}
-          <NavItem active={activeTab === 'payments'} onClick={() => setActiveTab('payments')} icon={ICONS.Payments} label="Caja y Cobros" />
-          <NavItem active={activeTab === 'ledger'} onClick={() => setActiveTab('ledger')} icon={ICONS.Search} label="Cuentas por Cobrar" />
-          <NavItem active={activeTab === 'verification'} onClick={() => setActiveTab('verification')} icon={ICONS.Verify} label="Verificación" />
-          <NavItem active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} icon={ICONS.Reports} label="Reportes" />
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-4 mb-1">General</p>
+          <NavItem active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<LayoutGrid size={20} />} label="Panel de Control" />
+          
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-4 mb-1 mt-4">Gestión de Cobros</p>
+          <NavItem active={activeTab === 'payments'} onClick={() => setActiveTab('payments')} icon={<Wallet size={20} />} label="Caja y Cobros" />
+          <NavItem active={activeTab === 'ledger'} onClick={() => setActiveTab('ledger')} icon={<ClipboardList size={20} />} label="Cuentas por Cobrar" />
+          <NavItem active={activeTab === 'verification'} onClick={() => setActiveTab('verification')} icon={<ShieldCheck size={20} />} label="Verificación" />
+          <NavItem active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} icon={<FileBarChart size={20} />} label="Reportes" />
+
           {isAdmin && (
             <>
-              <NavItem active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={ICONS.Users} label="Usuarios" />
-              <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={ICONS.Settings} label="Ajustes" />
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-4 mb-1 mt-4">Administración</p>
+              <div className="space-y-1">
+                <button
+                  onClick={() => setIsAdminOpen(!isAdminOpen)}
+                  className={`flex items-center justify-between w-full p-4 rounded-xl transition-all font-bold text-sm ${isAdminOpen ? 'bg-slate-800 text-blue-400' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Settings size={20} />
+                    <span>Configuración</span>
+                  </div>
+                  {isAdminOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+                
+                {isAdminOpen && (
+                  <div className="pl-4 space-y-1 mt-1 animate-slideDown">
+                    <NavItem active={activeTab === 'students'} onClick={() => setActiveTab('students')} icon={<UserPlus size={18} />} label="Matrícula" />
+                    <NavItem active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={<Users size={18} />} label="Personal" />
+                    <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<Settings size={18} />} label="Parámetros" />
+                  </div>
+                )}
+              </div>
             </>
           )}
         </nav>
 
         <div className="p-6 bg-[#020617] border-t border-slate-800">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-white">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-white shadow-inner">
               {currentUser.fullName.charAt(0)}
             </div>
             <div className="overflow-hidden">
-              <p className="text-sm font-bold truncate">{currentUser.fullName}</p>
-              <p className="text-[10px] text-slate-500 font-bold uppercase">{currentUser.role}</p>
+              <p className="text-sm font-bold truncate text-slate-200">{currentUser.fullName}</p>
+              <p className="text-[10px] text-blue-500 font-bold uppercase tracking-wider">{currentUser.role}</p>
             </div>
           </div>
-          <button onClick={handleLogout} className="flex items-center gap-3 w-full p-3 text-slate-400 hover:text-white hover:bg-rose-600/20 rounded-xl transition-all font-bold text-xs">
-            {ICONS.Exit} <span>Cerrar Sesión</span>
+          <button onClick={handleLogout} className="flex items-center gap-3 w-full p-3 text-slate-500 hover:text-rose-400 hover:bg-rose-900/20 rounded-xl transition-all font-bold text-xs group">
+            <ICONS.Exit.type {...ICONS.Exit.props} className="group-hover:rotate-12 transition-transform" /> 
+            <span>Cerrar Sesión</span>
           </button>
         </div>
       </aside>
 
       <main className="flex-1 overflow-y-auto max-h-screen p-8">
         <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <h2 className="text-3xl font-black text-slate-800 tracking-tight capitalize">
-            {activeTab === 'ledger' ? 'Cuentas por Cobrar' : activeTab === 'students' ? 'Registro Escolar' : activeTab}
-          </h2>
+          <div>
+            <h2 className="text-3xl font-black text-slate-800 tracking-tight capitalize">
+              {activeTab === 'ledger' ? 'Cuentas por Cobrar' : 
+               activeTab === 'students' ? 'Registro Escolar' : 
+               activeTab === 'dashboard' ? 'Panel Informativo' : 
+               activeTab === 'verification' ? 'Verificación de Pagos' : 
+               activeTab === 'users' ? 'Control de Personal' :
+               activeTab === 'settings' ? 'Ajustes del Sistema' : activeTab}
+            </h2>
+            <p className="text-xs font-medium text-slate-500 mt-1">Gestión administrativa del Colegio San Francisco</p>
+          </div>
           <div className="flex items-center gap-3">
-             {isSyncing && <span className="text-[10px] font-black text-blue-600 animate-pulse">SINCRONIZANDO...</span>}
-             <button onClick={fetchCloudData} className="p-3 bg-white border border-slate-200 rounded-2xl shadow-sm text-slate-400 hover:text-blue-600 transition-all">
+             {isSyncing && <span className="text-[10px] font-black text-blue-600 animate-pulse tracking-widest">GUARDANDO CAMBIOS...</span>}
+             <button onClick={fetchCloudData} className="p-3 bg-white border border-slate-200 rounded-2xl shadow-sm text-slate-400 hover:text-blue-600 hover:shadow-md transition-all active:scale-95" title="Sincronizar Datos">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 16h5v5"></path></svg>
              </button>
           </div>
@@ -234,10 +267,10 @@ const NavItem: React.FC<{ active: boolean; onClick: () => void; icon: React.Reac
   <button
     onClick={onClick}
     className={`flex items-center gap-3 w-full p-4 rounded-xl transition-all font-bold text-sm ${
-      active ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+      active ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 translate-x-1' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
     }`}
   >
-    {icon} <span>{label}</span>
+    {icon} <span className="tracking-tight">{label}</span>
   </button>
 );
 

@@ -2,10 +2,12 @@
 import { User, Representative, PaymentRecord, LevelFees, PaymentStatus } from '../types';
 
 const VIRTUAL_OFFICE_SHEET_ID = '17slRl7f9AKQgCEGF5jDLMGfmOc-unp1gXSRpYFGX1Eg';
+const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzs9a_-0PIWvOPWwwzfgQdWBzUZMPwd7AV8NVTOHjsXZPKBEcFKP2X6nezc2O8EZBhA/exec';
 
 export const sheetService = {
   getScriptUrl() {
-    return localStorage.getItem('school_script_url') || '';
+    const saved = localStorage.getItem('school_script_url');
+    return saved || DEFAULT_SCRIPT_URL;
   },
 
   setScriptUrl(url: string) {
@@ -17,24 +19,29 @@ export const sheetService = {
     return url !== '' && url.includes('/macros/s/') && url.endsWith('/exec');
   },
 
+  /**
+   * Obtiene todos los datos del Libro Maestro (Local/Privado)
+   */
   async fetchAll() {
     const url = this.getScriptUrl();
     if (!this.isValidConfig()) return null;
 
     try {
+      // Usamos cache: 'no-store' para evitar datos viejos
       const response = await fetch(url, {
         method: 'GET',
-        cache: 'no-cache',
+        cache: 'no-store',
         mode: 'cors'
       });
       
       if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
       const data = await response.json();
       
+      // Normalización de campos para consistencia
       if (data.payments) {
         data.payments = data.payments.map((p: any) => ({
           ...p,
-          cedulaRepresentative: p.cedulaRepresen || p.cedulaRepresentative
+          cedulaRepresentative: p.cedulaRepresen || p.cedulaRepresentative || p.cedula
         }));
       }
       
@@ -53,23 +60,40 @@ export const sheetService = {
     if (!this.isValidConfig()) return [];
 
     try {
-      // Enviamos el ID de la oficina virtual como parámetro a nuestro Apps Script
-      const response = await fetch(`${url}?action=get_external_payments&sheetId=${VIRTUAL_OFFICE_SHEET_ID}`, {
+      // Construcción robusta de URL con parámetros
+      const syncUrl = new URL(url);
+      syncUrl.searchParams.append('action', 'get_external_payments');
+      syncUrl.searchParams.append('sheetId', VIRTUAL_OFFICE_SHEET_ID);
+
+      const response = await fetch(syncUrl.toString(), {
         method: 'GET',
-        cache: 'no-cache'
+        cache: 'no-store',
+        mode: 'cors'
       });
 
-      if (!response.ok) return [];
-      const data = await response.json();
+      if (!response.ok) throw new Error('Error en respuesta de Oficina Virtual');
       
-      // Sanitizar datos externos para que coincidan con el esquema interno
-      return (data.payments || []).map((p: any) => ({
-        ...p,
-        status: PaymentStatus.PENDIENTE, // Todo lo que viene de afuera debe ser verificado
-        observations: `[OFICINA VIRTUAL] ${p.observations || ''}`
+      const data = await response.json();
+      const rawPayments = data.payments || data.data || [];
+      
+      // Sanitizar datos externos para que coincidan con el esquema interno de ColegioPay
+      return rawPayments.map((p: any) => ({
+        id: p.id || `EXT-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        timestamp: p.timestamp || new Date().toISOString(),
+        paymentDate: p.paymentDate || new Date().toISOString().split('T')[0],
+        cedulaRepresentative: p.cedulaRepresen || p.cedulaRepresentative || p.cedula || '0',
+        matricula: p.matricula || 'N/A',
+        level: p.level || 'Primaria',
+        method: p.method || 'Transferencia',
+        reference: p.reference || '000000',
+        amount: parseFloat(p.amount) || 0,
+        observations: `[OFICINA VIRTUAL] ${p.observations || p.concepto || ''}`,
+        status: PaymentStatus.PENDIENTE,
+        type: p.type || 'TOTAL',
+        pendingBalance: parseFloat(p.pendingBalance) || 0
       }));
     } catch (error) {
-      console.error('Error al sincronizar con Oficina Virtual:', error);
+      console.error('Fallo de conexión con Oficina Virtual:', error);
       return [];
     }
   },
@@ -78,8 +102,9 @@ export const sheetService = {
     const url = this.getScriptUrl();
     if (!this.isValidConfig()) return false;
 
+    // Generar Ledger para sincronización
     const ledger = data.representatives.map(rep => {
-      const totalDue = rep.students.reduce((sum, s) => sum + data.fees[s.level], 0);
+      const totalDue = rep.students.reduce((sum, s) => sum + (data.fees[s.level] || 0), 0);
       const totalPaid = data.payments
         .filter(p => p.cedulaRepresentative === rep.cedula && p.status === PaymentStatus.VERIFICADO)
         .reduce((sum, p) => sum + p.amount, 0);
@@ -96,34 +121,19 @@ export const sheetService = {
       };
     });
 
-    const mappedPayments = data.payments.map(p => ({
-      id: p.id,
-      timestamp: p.timestamp,
-      paymentDate: p.paymentDate,
-      cedulaRepresen: p.cedulaRepresentative,
-      matricula: p.matricula,
-      level: p.level,
-      method: p.method,
-      reference: p.reference,
-      amount: p.amount,
-      observations: p.observations,
-      status: p.status,
-      type: p.type,
-      pendingBalance: p.pendingBalance
-    }));
-
     try {
       const payload = { 
         action: 'sync_all', 
         data: {
           users: data.users,
           representatives: data.representatives,
-          payments: mappedPayments,
+          payments: data.payments,
           fees: data.fees,
           ledger: ledger
         } 
       };
 
+      // Enviar como text/plain para evitar problemas de pre-flight CORS en Apps Script
       await fetch(url, {
         method: 'POST',
         mode: 'no-cors',
@@ -133,7 +143,7 @@ export const sheetService = {
       
       return true;
     } catch (error) {
-      console.error('Fallo crítico en sincronización:', error);
+      console.error('Fallo crítico en sincronización POST:', error);
       return false;
     }
   }

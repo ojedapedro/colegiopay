@@ -2,7 +2,24 @@
 import React, { useState, useMemo } from 'react';
 import { PaymentRecord, PaymentStatus, PaymentMethod } from '../types';
 import { ICONS } from '../constants';
-import { CreditCard, Smartphone, Landmark, ReceiptText, Check, X, ShieldCheck, ShieldAlert, ExternalLink, Filter, Calendar, DollarSign, RefreshCw, Globe } from 'lucide-react';
+import { 
+  CreditCard, 
+  Smartphone, 
+  Landmark, 
+  ReceiptText, 
+  Check, 
+  X, 
+  ShieldCheck, 
+  ShieldAlert, 
+  ExternalLink, 
+  Filter, 
+  Calendar, 
+  DollarSign, 
+  RefreshCw, 
+  Globe,
+  Info,
+  Hash
+} from 'lucide-react';
 import { sheetService } from '../services/googleSheets';
 
 interface Props {
@@ -47,7 +64,6 @@ const VerificationList: React.FC<Props> = ({ payments, onVerify, onImportExterna
     const externalPayments = await sheetService.fetchVirtualOfficePayments();
     
     if (externalPayments.length > 0 && onImportExternal) {
-      // Filtrar los que ya existen para evitar duplicados por ID de referencia
       const existingIds = new Set(payments.map(p => p.id));
       const news = externalPayments.filter((p: PaymentRecord) => !existingIds.has(p.id));
       
@@ -66,16 +82,31 @@ const VerificationList: React.FC<Props> = ({ payments, onVerify, onImportExterna
   const getMethodInfo = (method: PaymentMethod) => {
     switch (method) {
       case PaymentMethod.ZELLE:
-        return { color: 'bg-purple-50 text-purple-700 border-purple-200', icon: <Smartphone size={14} /> };
+        return { 
+          color: 'bg-purple-100 text-purple-700 border-purple-200', 
+          icon: <Smartphone size={14} strokeWidth={2.5} /> 
+        };
       case PaymentMethod.PAGO_MOVIL:
-        return { color: 'bg-orange-50 text-orange-700 border-orange-200', icon: <Smartphone size={14} /> };
+        return { 
+          color: 'bg-orange-100 text-orange-700 border-orange-200', 
+          icon: <Smartphone size={14} strokeWidth={2.5} /> 
+        };
       case PaymentMethod.TRANSFERENCIA:
-        return { color: 'bg-blue-50 text-blue-700 border-blue-200', icon: <Landmark size={14} /> };
+        return { 
+          color: 'bg-blue-100 text-blue-700 border-blue-200', 
+          icon: <Landmark size={14} strokeWidth={2.5} /> 
+        };
       case PaymentMethod.TDC:
       case PaymentMethod.TDD:
-        return { color: 'bg-indigo-50 text-indigo-700 border-indigo-200', icon: <CreditCard size={14} /> };
+        return { 
+          color: 'bg-indigo-100 text-indigo-700 border-indigo-200', 
+          icon: <CreditCard size={14} strokeWidth={2.5} /> 
+        };
       default:
-        return { color: 'bg-slate-50 text-slate-700 border-slate-200', icon: <ReceiptText size={14} /> };
+        return { 
+          color: 'bg-slate-100 text-slate-700 border-slate-200', 
+          icon: <ReceiptText size={14} strokeWidth={2.5} /> 
+        };
     }
   };
 
@@ -90,7 +121,6 @@ const VerificationList: React.FC<Props> = ({ payments, onVerify, onImportExterna
 
   const ReferenceTag: React.FC<{ reference: string }> = ({ reference }) => {
     const isLink = isUrl(reference);
-    const classes = "font-mono bg-slate-900 text-white px-2 py-0.5 rounded text-[10px] tracking-wider group-hover:bg-blue-600 transition-colors flex items-center gap-1.5";
     
     if (isLink) {
       return (
@@ -98,163 +128,197 @@ const VerificationList: React.FC<Props> = ({ payments, onVerify, onImportExterna
           href={reference} 
           target="_blank" 
           rel="noopener noreferrer" 
-          className={`${classes} hover:bg-blue-500 hover:scale-105 active:scale-95 cursor-pointer shadow-sm`}
+          className="group/link inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-blue-200 hover:-translate-y-0.5 active:translate-y-0"
         >
-          {reference.length > 20 ? reference.substring(0, 17) + '...' : reference}
-          <ExternalLink size={10} strokeWidth={3} />
+          Ver Comprobante
+          <ExternalLink size={12} className="group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5 transition-transform" />
         </a>
       );
     }
 
     return (
-      <span className={classes}>
+      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-[10px] font-mono tracking-widest shadow-sm">
+        <Hash size={10} className="text-slate-400" />
         {reference}
-      </span>
+      </div>
     );
   };
 
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Cabecera de Sincronización Externa */}
-      <div className="bg-[#0f172a] p-6 rounded-3xl shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 border border-slate-800">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-blue-500/10 rounded-2xl border border-blue-500/20 text-blue-400">
-            <Globe size={24} />
+      <div className="bg-[#0f172a] p-8 rounded-[2rem] shadow-2xl flex flex-col md:flex-row items-center justify-between gap-8 border border-slate-800 relative overflow-hidden group">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/5 rounded-full blur-3xl -mr-32 -mt-32"></div>
+        <div className="flex items-center gap-5 relative z-10">
+          <div className="p-4 bg-blue-500/10 rounded-3xl border border-blue-500/20 text-blue-400 shadow-inner">
+            <Globe size={32} className="group-hover:rotate-12 transition-transform duration-500" />
           </div>
           <div>
-            <h3 className="text-white font-black text-lg tracking-tight">Oficina Virtual <span className="text-blue-500">Conectada</span></h3>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Base de datos externa: 17slRl7f...FGX1Eg</p>
+            <h3 className="text-white font-black text-xl tracking-tight">Oficina Virtual <span className="text-blue-500">Master</span></h3>
+            <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mt-1">Conexión activa: ID-17slRl7f...FGX1Eg</p>
           </div>
         </div>
         <button 
           onClick={handleSyncVirtualOffice}
           disabled={isSyncingExternal}
-          className={`flex items-center gap-3 px-6 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${isSyncingExternal ? 'bg-slate-800 text-slate-500' : 'bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-500/20'}`}
+          className={`relative z-10 flex items-center gap-3 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.15em] transition-all duration-300 ${isSyncingExternal ? 'bg-slate-800 text-slate-500' : 'bg-blue-600 text-white hover:bg-blue-500 shadow-xl shadow-blue-600/20 hover:-translate-y-1'}`}
         >
-          <RefreshCw size={16} className={isSyncingExternal ? 'animate-spin' : ''} />
-          {isSyncingExternal ? 'Sincronizando...' : 'Verificar Oficina Virtual'}
+          <RefreshCw size={18} className={isSyncingExternal ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'} />
+          {isSyncingExternal ? 'Importando Datos...' : 'Sincronizar Oficina'}
         </button>
       </div>
 
-      <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-slate-100 text-slate-600 rounded-lg">
-            <Filter size={18} />
+      <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-3 mb-8">
+          <div className="p-2.5 bg-slate-100 text-slate-600 rounded-2xl">
+            <Filter size={20} />
           </div>
-          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Herramientas de Auditoría</h4>
+          <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Filtros de Verificación</h4>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
-              <Calendar size={10} /> Fecha
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+              <Calendar size={12} className="text-blue-500" /> Fecha del Pago
             </label>
             <input 
               type="date" 
               value={filterDate}
               onChange={(e) => setFilterDate(e.target.value)}
-              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-bold"
+              className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 transition-all text-sm font-bold"
             />
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
-              <DollarSign size={10} /> Monto Mín
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+              <DollarSign size={12} className="text-emerald-500" /> Monto Mínimo
             </label>
-            <input 
-              type="number" 
-              value={minAmount}
-              onChange={(e) => setMinAmount(e.target.value)}
-              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-bold"
-            />
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-300">$</span>
+              <input 
+                type="number" 
+                value={minAmount}
+                onChange={(e) => setMinAmount(e.target.value)}
+                placeholder="0.00"
+                className="w-full pl-8 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 transition-all text-sm font-bold"
+              />
+            </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
-              <DollarSign size={10} /> Monto Máx
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+              <DollarSign size={12} className="text-rose-500" /> Monto Máximo
             </label>
-            <input 
-              type="number" 
-              value={maxAmount}
-              onChange={(e) => setMaxAmount(e.target.value)}
-              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-bold"
-            />
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-300">$</span>
+              <input 
+                type="number" 
+                value={maxAmount}
+                onChange={(e) => setMaxAmount(e.target.value)}
+                placeholder="Sin límite"
+                className="w-full pl-8 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 transition-all text-sm font-bold"
+              />
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-amber-100 text-amber-700 rounded-2xl">
-              <ShieldAlert size={22} />
+      <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden">
+        <div className="p-8 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between bg-slate-50/30 gap-6">
+          <div className="flex items-center gap-4">
+            <div className="p-4 bg-amber-100 text-amber-600 rounded-3xl shadow-inner">
+              <ShieldAlert size={28} />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-800">Pagos Pendientes</h3>
-              <p className="text-sm text-slate-500">Total a verificar: {pending.length}</p>
+              <h3 className="text-xl font-black text-slate-800 tracking-tight">Cola de Auditoría</h3>
+              <p className="text-xs font-medium text-slate-500">Validación manual de transacciones digitales</p>
             </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="px-5 py-2.5 bg-amber-50 text-amber-700 rounded-2xl text-[11px] font-black uppercase tracking-widest border border-amber-200 shadow-sm">
+              {pending.length} Pendientes
+            </span>
           </div>
         </div>
 
         {pending.length === 0 ? (
-          <div className="p-24 flex flex-col items-center justify-center text-slate-400 text-center">
-            <ShieldCheck size={48} className="text-emerald-400 mb-4" />
-            <p className="text-xl font-black text-slate-800">Sin pagos por verificar</p>
-            <p className="text-sm mt-1">Haga clic en el botón superior para buscar nuevos pagos.</p>
+          <div className="p-32 flex flex-col items-center justify-center text-slate-400 text-center">
+            <div className="w-24 h-24 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-8 shadow-inner border-4 border-white">
+              <ShieldCheck size={52} />
+            </div>
+            <p className="text-2xl font-black text-slate-800 tracking-tight">Sistema Limpio</p>
+            <p className="text-sm mt-2 font-medium max-w-xs mx-auto text-slate-500 leading-relaxed">No hay pagos pendientes por verificar en este momento.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-slate-50/80 text-slate-500 text-[11px] font-bold uppercase tracking-widest border-b border-slate-100">
-                  <th className="px-8 py-5">Registro</th>
-                  <th className="px-8 py-5">Representante</th>
-                  <th className="px-8 py-5">Detalle</th>
-                  <th className="px-8 py-5">Monto</th>
-                  <th className="px-8 py-5 text-right">Validación</th>
+                <tr className="bg-slate-50/80 text-slate-500 text-[11px] font-black uppercase tracking-[0.2em] border-b border-slate-100">
+                  <th className="px-8 py-6">Fecha / Origen</th>
+                  <th className="px-8 py-6">Identificación</th>
+                  <th className="px-8 py-6">Instrumento / Referencia</th>
+                  <th className="px-8 py-6">Monto</th>
+                  <th className="px-8 py-6 text-right">Acción</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {pending.map((p) => {
                   const methodInfo = getMethodInfo(p.method);
+                  const isExternal = p.observations.includes('OFICINA VIRTUAL');
+                  
                   return (
-                    <tr key={p.id} className="group hover:bg-slate-50/50">
-                      <td className="px-8 py-6">
+                    <tr key={p.id} className="group hover:bg-slate-50/80 transition-all duration-300">
+                      <td className="px-8 py-7 relative">
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 scale-y-0 group-hover:scale-y-100 transition-transform duration-300"></div>
                         <div className="flex flex-col">
-                          <span className="text-sm font-bold text-slate-700">{p.paymentDate}</span>
-                          <span className={`text-[9px] font-black uppercase mt-1 px-1.5 py-0.5 rounded w-fit ${p.observations.includes('OFICINA VIRTUAL') ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>
-                            {p.observations.includes('OFICINA VIRTUAL') ? 'EXTERNO' : 'INTERNO'}
+                          <span className="text-sm font-black text-slate-800">{p.paymentDate}</span>
+                          <span className={`inline-flex items-center gap-1.5 text-[9px] font-black uppercase mt-2 px-2.5 py-1 rounded-full border w-fit ${isExternal ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                            {isExternal ? <Globe size={10} /> : <Info size={10} />}
+                            {isExternal ? 'Oficina Virtual' : 'Caja Interna'}
                           </span>
                         </div>
                       </td>
-                      <td className="px-8 py-6">
-                        <span className="text-sm font-bold text-slate-800">C.I. {p.cedulaRepresentative}</span>
+                      <td className="px-8 py-7">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-slate-700">C.I. {p.cedulaRepresentative}</span>
+                          <span className="text-[10px] text-slate-400 font-mono mt-1">ID-TRAN: {p.id.slice(-8)}</span>
+                        </div>
                       </td>
-                      <td className="px-8 py-6">
-                        <div className="flex flex-col gap-2">
-                          <div className={`flex items-center gap-2 px-2 py-1 rounded-lg border text-[10px] font-black uppercase w-fit ${methodInfo.color}`}>
+                      <td className="px-8 py-7">
+                        <div className="flex flex-col gap-3">
+                          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase w-fit shadow-sm ${methodInfo.color}`}>
                             {methodInfo.icon} {p.method}
                           </div>
                           <ReferenceTag reference={p.reference} />
                         </div>
                       </td>
-                      <td className="px-8 py-6">
-                        <span className="text-lg font-black text-slate-900">${p.amount.toFixed(2)}</span>
+                      <td className="px-8 py-7">
+                        <div className="flex flex-col">
+                          <span className="text-xl font-black text-slate-900 tracking-tight">${p.amount.toFixed(2)}</span>
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Total a Verificación</span>
+                        </div>
                       </td>
-                      <td className="px-8 py-6">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="px-8 py-7">
+                        <div className="flex items-center justify-end gap-3 translate-x-4 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-500">
                           <button 
                             onClick={() => onVerify(p.id, PaymentStatus.VERIFICADO)}
-                            className="bg-emerald-600 text-white p-2.5 rounded-xl hover:bg-emerald-500 transition-all shadow-md"
+                            className="bg-emerald-600 text-white p-3.5 rounded-2xl hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-100 hover:-translate-y-1 active:translate-y-0"
+                            title="Aprobar Pago"
                           >
-                            <Check size={18} strokeWidth={3} />
+                            <Check size={20} strokeWidth={3} />
                           </button>
                           <button 
                             onClick={() => onVerify(p.id, PaymentStatus.RECHAZADO)}
-                            className="bg-rose-50 text-rose-500 p-2.5 rounded-xl hover:bg-rose-100 transition-all"
+                            className="bg-white text-rose-500 border-2 border-rose-100 p-3.5 rounded-2xl hover:bg-rose-50 hover:border-rose-300 transition-all hover:-translate-y-1 active:translate-y-0"
+                            title="Rechazar Pago"
                           >
-                            <X size={18} strokeWidth={3} />
+                            <X size={20} strokeWidth={3} />
                           </button>
+                        </div>
+                        {/* Indicador visible para mobile o sin hover */}
+                        <div className="flex items-center justify-end gap-2 group-hover:hidden transition-all">
+                           <div className="w-2 h-2 rounded-full bg-blue-500/20 animate-pulse"></div>
+                           <span className="text-[9px] font-black text-slate-300 uppercase tracking-[0.2em]">Auditar</span>
                         </div>
                       </td>
                     </tr>
