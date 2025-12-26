@@ -20,75 +20,62 @@ export const sheetService = {
   },
 
   /**
-   * Obtiene datos del Libro Maestro
+   * Obtiene todos los datos del Libro Maestro (Base de datos del Sistema)
    */
   async fetchAll() {
     const url = this.getScriptUrl();
     if (!this.isValidConfig()) return null;
 
     try {
-      const response = await fetch(url, {
+      const response = await fetch(`${url}?action=read_all`, {
         method: 'GET',
         cache: 'no-store',
-        mode: 'cors'
       });
       
-      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+      if (!response.ok) throw new Error(`Error de red: ${response.status}`);
       const data = await response.json();
       
-      if (data.payments) {
+      if (data && data.payments) {
         data.payments = data.payments.map((p: any) => ({
           ...p,
-          cedulaRepresentative: String(p["Cedula Representan"] || p.cedulaRepresen || p.cedulaRepresentative || p.cedula || '0').replace('V-', '').replace('E-', '').trim()
+          cedulaRepresentative: String(p.cedulaRepresentative || p.cedula || '0').replace('V-', '').replace('E-', '').trim()
         }));
       }
-      
       return data;
     } catch (error) {
-      console.warn('Error al leer de la nube:', error);
+      console.warn('Sincronización de lectura fallida:', error);
       return null;
     }
   },
 
   /**
-   * Importa pagos desde la hoja 'consolidado' de la Oficina Virtual
+   * IMPORTANTE: Sincroniza con la OFICINA VIRTUAL (Base de datos Externa)
+   * Realiza la verificación cruzada de pagos externos.
    */
   async fetchVirtualOfficePayments() {
     const url = this.getScriptUrl();
     if (!this.isValidConfig()) return [];
 
     try {
-      const syncUrl = new URL(url);
-      syncUrl.searchParams.append('action', 'get_external_payments');
-      syncUrl.searchParams.append('sheetId', VIRTUAL_OFFICE_SHEET_ID);
-      syncUrl.searchParams.append('sheetName', 'consolidado'); // Apuntamos a la hoja correcta según tu indicación
-
-      const response = await fetch(syncUrl.toString(), {
+      // Usamos la acción específica para traer pagos externos del consolidado
+      const response = await fetch(`${url}?action=get_external_payments&sheetId=${VIRTUAL_OFFICE_SHEET_ID}&sheetName=consolidado`, {
         method: 'GET',
-        cache: 'no-store',
-        mode: 'cors'
+        cache: 'no-store'
       });
 
-      if (!response.ok) throw new Error('Error en respuesta de Oficina Virtual');
+      if (!response.ok) throw new Error('Error al conectar con la Oficina Virtual');
       
-      const data = await response.json();
-      // Verificamos si los datos vienen en una propiedad 'payments', 'data' o si es el array directamente
-      const rawPayments = Array.isArray(data) ? data : (data.payments || data.data || []);
+      const result = await response.json();
+      const rawPayments = Array.isArray(result) ? result : (result.payments || result.data || []);
       
-      if (rawPayments.length === 0) return [];
-
       return rawPayments.map((p: any) => {
-        // Normalización de Cédula (Remover V- o E-)
-        let rawCedula = String(p["Cedula Representan"] || p.cedulaRepresen || p.cedulaRepresentative || p.cedula || '0');
+        const rawCedula = String(p["Cedula Representan"] || p.cedulaRepresen || p.cedulaRepresentative || p.cedula || '0');
         const cleanCedula = rawCedula.replace('V-', '').replace('E-', '').trim();
-
-        // Creamos un ID único usando Referencia + Timestamp para evitar duplicados falsos
         const ref = String(p["Referencia"] || p.reference || '000000');
         const ts = String(p["Timestamp"] || p.timestamp || Date.now());
-        const uniqueId = `EXT-${ref}-${ts.replace(/[:\s\-\/]/g, '')}`;
-
+        
         return {
-          id: uniqueId,
+          id: `EXT-${ref}-${ts.replace(/[:\s\-\/]/g, '')}`,
           timestamp: p["Timestamp"] || p.timestamp || new Date().toISOString(),
           paymentDate: p["Fecha Pago"] || p.paymentDate || new Date().toISOString().split('T')[0],
           cedulaRepresentative: cleanCedula,
@@ -104,15 +91,19 @@ export const sheetService = {
         };
       });
     } catch (error) {
-      console.error('Fallo de conexión con Oficina Virtual:', error);
+      console.error('Error crítico en fetch de Oficina Virtual:', error);
       return [];
     }
   },
 
+  /**
+   * Sincroniza el estado actual del sistema local hacia la nube
+   */
   async syncAll(data: { users: User[], representatives: Representative[], payments: PaymentRecord[], fees: LevelFees }) {
     const url = this.getScriptUrl();
     if (!this.isValidConfig()) return false;
 
+    // Generar Ledger para espejo en Drive
     const ledger = data.representatives.map(rep => {
       const totalDue = rep.totalAccruedDebt || 0;
       const totalPaid = data.payments
@@ -125,7 +116,7 @@ export const sheetService = {
         matricula: rep.matricula,
         telefono: rep.phone,
         alumnos: rep.students.map(s => `${s.fullName} (${s.level})`).join(' | '),
-        montoMensualid: totalDue,
+        deudaAcumulada: totalDue,
         totalAbonado: totalPaid,
         saldoPendiente: Math.max(0, totalDue - totalPaid)
       };
@@ -134,25 +125,20 @@ export const sheetService = {
     try {
       const payload = { 
         action: 'sync_all', 
-        data: {
-          users: data.users,
-          representatives: data.representatives,
-          payments: data.payments,
-          fees: data.fees,
-          ledger: ledger
-        } 
+        data: { ...data, ledger } 
       };
 
+      // Usamos text/plain para evitar preflight de CORS en Apps Script
       await fetch(url, {
         method: 'POST',
-        mode: 'no-cors',
+        mode: 'no-cors', 
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify(payload)
       });
       
       return true;
     } catch (error) {
-      console.error('Fallo crítico en sincronización POST:', error);
+      console.error('Error en sincronización POST:', error);
       return false;
     }
   }
