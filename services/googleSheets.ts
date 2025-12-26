@@ -1,11 +1,23 @@
 
 import { User, Representative, PaymentRecord, LevelFees, PaymentStatus, Level } from '../types';
 
-// IDs de las Hojas de Cálculo según las imágenes proporcionadas
+// IDs de las Hojas de Cálculo proporcionados
 const COLEGIO_PAY_SHEET_ID = '13lZSsC2YeTv6hPd1ktvOsexcIj9CA2wcpbxU-gvdVLo';
 const VIRTUAL_OFFICE_SHEET_ID = '17slRl7f9AKQgCEGF5jDLMGfmOc-unp1gXSRpYFGX1Eg';
 
-const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzBdfC3yAPAtheuAMpBb1jtW98uHIsGL0dONHl33w891WlgyrbsunesQMHqvhkcHDg21A/exec';
+// Nueva URL proporcionada por el usuario
+const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxv497Vl2JiZMx4clinJ-BXmEEHRnZaxfho3-ZRTVp1gtmbk69ncbAHsxxCsPz03vOcyg/exec';
+
+/**
+ * Utilidad para normalizar cédulas: elimina prefijos (V-, E-), puntos y espacios.
+ * Ej: "V-12.345.678" -> "12345678"
+ */
+const cleanId = (id: any): string => {
+  if (!id) return '0';
+  return String(id)
+    .replace(/[VEve\-\.\s]/g, '')
+    .trim();
+};
 
 export const sheetService = {
   getScriptUrl() {
@@ -34,7 +46,6 @@ export const sheetService = {
 
   /**
    * Obtiene datos de ColegioPay (SistemCol)
-   * Según Imagen 1: headers son 'id', 'cedulaRepresen', 'matricula', etc.
    */
   async fetchAll() {
     const url = this.getScriptUrl();
@@ -51,12 +62,18 @@ export const sheetService = {
       if (data && data.payments) {
         data.payments = data.payments.map((p: any) => ({
           ...p,
-          // Mapeo según Imagen 1: 'cedulaRepresen'
-          cedulaRepresentative: String(p.cedulaRepresen || p.cedulaRepresentative || p.cedula || '0')
-            .replace(/[VEve]-/, '')
-            .trim()
+          // Normalizamos la cédula que viene de la columna 'cedulaRepresen'
+          cedulaRepresentative: cleanId(p.cedulaRepresen || p.cedulaRepresentative || p.cedula)
         }));
       }
+
+      if (data && data.representatives) {
+        data.representatives = data.representatives.map((r: any) => ({
+          ...r,
+          cedula: cleanId(r.cedula)
+        }));
+      }
+
       return data;
     } catch (error) {
       console.error('Error al leer ColegioPay:', error);
@@ -65,8 +82,7 @@ export const sheetService = {
   },
 
   /**
-   * Obtiene datos de Oficina Virtual
-   * Según Imagen 2: headers son 'Cedula Representante', 'Matricula', 'Monto', 'Tipo Pago'
+   * Obtiene datos de Oficina Virtual para verificación
    */
   async fetchVirtualOfficePayments() {
     const url = this.getScriptUrl();
@@ -86,20 +102,16 @@ export const sheetService = {
       const rawPayments = Array.isArray(result) ? result : (result.payments || result.data || []);
       
       return rawPayments.map((p: any) => {
-        // Limpieza de Cédula (Remover V- o E-)
-        const rawCedula = String(p["Cedula Representante"] || p["Cédula"] || p.cedula || '0');
-        const cleanCedula = rawCedula.replace(/[VEve]-/, '').trim();
-        
+        const cleanedCedula = cleanId(p["Cedula Representante"] || p["Cédula"] || p.cedula);
         const rawMonto = p["Monto"] || p["Amount"] || 0;
         const amount = typeof rawMonto === 'string' ? parseFloat(rawMonto.replace(',', '.')) : parseFloat(rawMonto);
-
         const ref = String(p["Referencia"] || p.reference || '000000');
         
         return {
-          id: `EXT-${ref}-${cleanCedula}-${Date.now()}`,
+          id: `EXT-${ref}-${cleanedCedula}-${Date.now()}`,
           timestamp: String(p["Timestamp"] || new Date().toISOString()),
           paymentDate: String(p["Fecha Pago"] || p["Fecha Registro"] || new Date().toISOString().split('T')[0]),
-          cedulaRepresentative: cleanCedula,
+          cedulaRepresentative: cleanedCedula,
           matricula: String(p["Matricula"] || p["Matrícula"] || 'N/A'),
           level: (p["Nivel"] || Level.PRIMARIA) as Level,
           method: String(p["Tipo Pago"] || p["Modo Pago"] || 'Pago Móvil'),
@@ -122,15 +134,17 @@ export const sheetService = {
     if (!this.isValidConfig()) return false;
 
     try {
-      // Preparamos los pagos para que coincidan con los headers de la Imagen 1
-      const paymentsToSync = data.payments.map(p => ({
-        ...p,
-        cedulaRepresen: p.cedulaRepresentative // Mapeo inverso para la hoja SistemCol
+      // Normalizamos antes de enviar para asegurar consistencia en la base de datos
+      const cleanedReps = data.representatives.map(r => ({ ...r, cedula: cleanId(r.cedula) }));
+      const cleanedPays = data.payments.map(p => ({ 
+        ...p, 
+        cedulaRepresentative: cleanId(p.cedulaRepresentative),
+        cedulaRepresen: cleanId(p.cedulaRepresentative) // Mapeo para la hoja SistemCol
       }));
 
-      const ledger = data.representatives.map(rep => {
+      const ledger = cleanedReps.map(rep => {
         const totalDue = rep.totalAccruedDebt || 0;
-        const totalPaid = data.payments
+        const totalPaid = cleanedPays
           .filter(p => p.cedulaRepresentative === rep.cedula && p.status === PaymentStatus.VERIFICADO)
           .reduce((sum, p) => sum + p.amount, 0);
         
@@ -150,8 +164,10 @@ export const sheetService = {
         action: 'sync_all', 
         sheetId: COLEGIO_PAY_SHEET_ID,
         data: { 
-          ...data, 
-          payments: paymentsToSync,
+          users: data.users,
+          representatives: cleanedReps,
+          payments: cleanedPays,
+          fees: data.fees,
           ledger 
         } 
       };
