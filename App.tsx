@@ -12,7 +12,7 @@ import {
   UserRole
 } from './types';
 import { ICONS } from './constants';
-import { ChevronDown, ChevronUp, ShieldCheck, LayoutGrid, ClipboardList, Wallet, FileBarChart, Settings, Users, UserPlus, Bell, Globe } from 'lucide-react';
+import { ChevronDown, ChevronUp, ShieldCheck, LayoutGrid, ClipboardList, Wallet, FileBarChart, Settings, Users, UserPlus, Bell, RefreshCcw } from 'lucide-react';
 import { initialRepresentatives, initialPayments, initialUsers } from './services/mockData';
 import { sheetService } from './services/googleSheets';
 
@@ -26,17 +26,14 @@ import Auth from './components/Auth';
 import UserManagement from './components/UserManagement';
 import SettingsModule from './components/SettingsModule';
 import LedgerModule from './components/LedgerModule';
-import RepresentativePortal from './components/RepresentativePortal';
 
 const INSTITUTION_LOGO = "https://i.ibb.co/FbHJbvVT/images.png";
 
 const App: React.FC = () => {
-  const [appMode, setAppMode] = useState<'admin' | 'portal'>('portal'); // Por defecto oficina virtual
   const [activeTab, setActiveTab] = useState<'dashboard' | 'students' | 'payments' | 'verification' | 'reports' | 'users' | 'settings' | 'ledger'>('dashboard');
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [currentRep, setCurrentRep] = useState<Representative | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [representatives, setRepresentatives] = useState<Representative[]>([]);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
@@ -134,13 +131,8 @@ const App: React.FC = () => {
       const savedSession = localStorage.getItem('school_session');
       if (savedSession) {
         const parsed = JSON.parse(savedSession);
-        if (parsed.type === 'rep') {
-          const foundRep = finalReps.find((r: Representative) => r.cedula === parsed.cedula);
-          if (foundRep) setCurrentRep(foundRep);
-        } else {
-          const foundUser = localUsers.find((u: User) => u.cedula === parsed.cedula);
-          if (foundUser) setCurrentUser(foundUser);
-        }
+        const foundUser = localUsers.find((u: User) => u.cedula === parsed.cedula);
+        if (foundUser) setCurrentUser(foundUser);
       }
 
       if (accruedReps) {
@@ -162,15 +154,9 @@ const App: React.FC = () => {
     loadData();
   }, [applyMonthlyAccrual]);
 
-  const handleLoginRep = (rep: Representative) => {
-    setCurrentRep(rep);
-    localStorage.setItem('school_session', JSON.stringify({ type: 'rep', cedula: rep.cedula }));
-  };
-
   const handleLogout = () => {
     localStorage.removeItem('school_session');
     setCurrentUser(null);
-    setCurrentRep(null);
     setActiveTab('dashboard');
   };
 
@@ -183,88 +169,12 @@ const App: React.FC = () => {
     );
   }
 
-  // Vista de Oficina Virtual para Representantes
-  if (appMode === 'portal' && !currentRep) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
-        <div className="max-w-md w-full bg-white p-10 rounded-[2.5rem] shadow-2xl shadow-blue-900/10 border border-slate-100 animate-fadeIn">
-          <div className="text-center mb-8">
-            <img src={INSTITUTION_LOGO} alt="Logo" className="w-20 h-20 mx-auto mb-4" />
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Oficina <span className="text-blue-600">Virtual</span></h2>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Portal del Representante</p>
-          </div>
-
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Cédula del Representante</label>
-              <input 
-                type="text" 
-                placeholder="Ej. 12345678"
-                className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:bg-white outline-none font-bold text-slate-700 transition-all"
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    const val = (e.target as HTMLInputElement).value;
-                    const found = representatives.find(r => r.cedula === val);
-                    if (found) handleLoginRep(found);
-                    else alert("Representante no registrado.");
-                  }
-                }}
-              />
-            </div>
-            <button 
-              onClick={() => {
-                const input = document.querySelector('input') as HTMLInputElement;
-                const found = representatives.find(r => r.cedula === input.value);
-                if (found) handleLoginRep(found);
-                else alert("Representante no registrado.");
-              }}
-              className="w-full py-5 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 uppercase tracking-widest text-sm"
-            >
-              Consultar Información
-            </button>
-
-            <button 
-              onClick={() => setAppMode('admin')}
-              className="w-full py-4 text-slate-400 text-xs font-bold uppercase tracking-widest hover:text-slate-600 transition-colors"
-            >
-              Acceso Personal Administrativo
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (appMode === 'portal' && currentRep) {
-    return (
-      <RepresentativePortal 
-        representative={currentRep} 
-        payments={payments.filter(p => p.cedulaRepresentative === currentRep.cedula)}
-        fees={fees}
-        onRegisterPayment={(p) => updateData(users, representatives, [p, ...payments], fees)}
-        onLogout={handleLogout}
-      />
-    );
-  }
-
-  // Flujo Administrativo (Igual que antes pero con botón para volver al portal)
   if (!currentUser) {
-    return (
-      <div className="relative">
-        <button 
-          onClick={() => setAppMode('portal')}
-          className="fixed top-6 right-6 z-50 px-4 py-2 bg-white/80 backdrop-blur text-blue-600 text-[10px] font-black uppercase tracking-widest rounded-xl border border-blue-100 shadow-sm"
-        >
-          Ir a Oficina Virtual
-        </button>
-        <Auth users={users} onLogin={(u) => { setCurrentUser(u); localStorage.setItem('school_session', JSON.stringify({ type: 'user', cedula: u.cedula })); }} onRegister={(u) => updateData([...users, u], representatives, payments, fees)} />
-      </div>
-    );
+    return <Auth users={users} onLogin={(u) => { setCurrentUser(u); localStorage.setItem('school_session', JSON.stringify({ cedula: u.cedula })); }} onRegister={(u) => updateData([...users, u], representatives, payments, fees)} />;
   }
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-[#f1f5f9]">
-      {/* Sidebar Admin (Igual) */}
       <aside className="w-full md:w-72 bg-[#0f172a] text-white flex flex-col shadow-2xl z-20">
         <div className="p-8 border-b border-slate-800">
           <div className="flex items-center gap-4">
@@ -317,13 +227,6 @@ const App: React.FC = () => {
         </nav>
 
         <div className="p-6 bg-[#020617] border-t border-slate-800">
-          <button 
-            onClick={() => setAppMode('portal')}
-            className="flex items-center gap-3 w-full p-3 mb-4 bg-blue-600/20 text-blue-400 rounded-xl font-black text-[10px] uppercase tracking-widest border border-blue-500/20 hover:bg-blue-600/30 transition-all"
-          >
-            <Globe size={16} />
-            Vista Oficina Virtual
-          </button>
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-white">
               {currentUser.fullName.charAt(0)}
@@ -369,10 +272,10 @@ const App: React.FC = () => {
 
         <div className="max-w-7xl mx-auto space-y-10">
           {activeTab === 'dashboard' && <Dashboard representatives={representatives} payments={payments} />}
-          {activeTab === 'students' && <StudentRegistration onRegister={(r) => updateData(users, [...representatives, r], payments, fees)} representatives={representatives} />}
+          {activeTab === 'students' && <StudentRegistration onRegister={(r) => updateData(users, [...representatives, r], payments, fees)} representatives={representatives} fees={fees} />}
           {activeTab === 'payments' && <PaymentModule onPay={(p) => updateData(users, representatives, [p, ...payments], fees)} representatives={representatives} payments={payments} fees={fees} />}
           {activeTab === 'ledger' && <LedgerModule representatives={representatives} payments={payments} fees={fees} />}
-          {activeTab === 'verification' && <VerificationList payments={payments} representatives={representatives} fees={fees} onVerify={(id, status) => updateData(users, representatives, payments.map(p => p.id === id ? {...p, status} : p), fees)} />}
+          {activeTab === 'verification' && <VerificationList payments={payments} representatives={representatives} fees={fees} onVerify={(id, status) => updateData(users, representatives, payments.map(p => p.id === id ? {...p, status} : p), fees)} onImportExternal={(news) => updateData(users, representatives, [...news, ...payments], fees)} />}
           {activeTab === 'reports' && <ReportsModule payments={payments} representatives={representatives} />}
           {activeTab === 'users' && <UserManagement users={users} onUpdateRole={(c, r) => updateData(users.map(u => u.cedula === c ? {...u, role: r} : u), representatives, payments, fees)} onDeleteUser={(c) => updateData(users.filter(u => u.cedula !== c), representatives, payments, fees)} />}
           {activeTab === 'settings' && <SettingsModule fees={fees} onUpdateFees={(f) => updateData(users, representatives, payments, f)} />}
@@ -391,10 +294,6 @@ const NavItem: React.FC<{ active: boolean; onClick: () => void; icon: React.Reac
   >
     {icon} <span className="tracking-tight">{label}</span>
   </button>
-);
-
-const RefreshCcw = ({ size }: { size: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 16h5v5"></path></svg>
 );
 
 export default App;
