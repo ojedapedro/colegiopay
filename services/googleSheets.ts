@@ -23,7 +23,7 @@ export const sheetService = {
   },
 
   /**
-   * Obtiene datos de la Base de Datos ColegioPay (Interna)
+   * Obtiene todos los datos de la Base de Datos Principal (ColegioPay)
    */
   async fetchAll() {
     const url = this.getScriptUrl();
@@ -35,7 +35,7 @@ export const sheetService = {
         cache: 'no-store'
       });
       
-      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+      if (!response.ok) throw new Error(`Error de conexión: ${response.status}`);
       const data = await response.json();
       
       if (data && data.payments) {
@@ -52,15 +52,14 @@ export const sheetService = {
   },
 
   /**
-   * Obtiene datos de la OFICINA VIRTUAL (Externa - Padres)
-   * Mapeo robusto de columnas para evitar fallos por nombres de headers.
+   * Obtiene datos específicamente de la OFICINA VIRTUAL (17slRl...)
+   * Implementa un mapeo flexible de headers para asegurar la captura de datos.
    */
   async fetchVirtualOfficePayments() {
     const url = this.getScriptUrl();
     if (!this.isValidConfig()) return [];
 
     try {
-      // Forzamos la consulta a la hoja 'consolidado' del ID de Oficina Virtual
       const targetUrl = `${url}?action=get_external_payments&sheetId=${VIRTUAL_OFFICE_SHEET_ID}&sheetName=consolidado`;
       
       const response = await fetch(targetUrl, {
@@ -68,80 +67,84 @@ export const sheetService = {
         cache: 'no-store'
       });
 
-      if (!response.ok) throw new Error('Fallo de conexión con Oficina Virtual');
+      if (!response.ok) throw new Error('Error de red con Oficina Virtual');
       
       const result = await response.json();
       const rawPayments = Array.isArray(result) ? result : (result.payments || result.data || []);
       
-      if (rawPayments.length === 0) return [];
+      if (!rawPayments || rawPayments.length === 0) return [];
 
       return rawPayments.map((p: any) => {
-        // Buscamos variaciones comunes de nombres de columnas que suelen venir del Sheet
-        const rawCedula = String(p["Cedula Representan"] || p["Cédula"] || p.cedulaRepresen || p.cedulaRepresentative || p.cedula || '0');
+        // Mapeo robusto: Busca el valor en múltiples posibles nombres de columna
+        const getVal = (keys: string[]) => {
+          for (const key of keys) {
+            if (p[key] !== undefined) return p[key];
+          }
+          return undefined;
+        };
+
+        const rawCedula = String(getVal(["Cedula Representan", "Cédula", "Cedula", "cedulaRepresen", "cedula"]) || '0');
         const cleanCedula = rawCedula.replace('V-', '').replace('E-', '').trim();
         
-        const rawMonto = p["Monto"] || p["Amount"] || p.amount || 0;
+        const rawMonto = getVal(["Monto", "Amount", "monto", "amount"]) || 0;
         const amount = typeof rawMonto === 'string' ? parseFloat(rawMonto.replace(',', '.')) : parseFloat(rawMonto);
 
-        const ref = String(p["Referencia"] || p["Reference"] || p.reference || '000000');
-        const ts = String(p["Timestamp"] || p["Fecha"] || p.timestamp || new Date().toISOString());
+        const ref = String(getVal(["Referencia", "Reference", "referencia", "reference"]) || '000000');
+        const ts = String(getVal(["Timestamp", "Fecha", "timestamp", "date"]) || new Date().toISOString());
 
         return {
-          id: `EXT-${ref}-${cleanCedula}-${Date.now()}`, // ID único compuesto
+          id: `EXT-${ref}-${cleanCedula}-${Date.now()}`,
           timestamp: ts,
-          paymentDate: p["Fecha Pago"] || p["Fecha"] || p.paymentDate || new Date().toISOString().split('T')[0],
+          paymentDate: String(getVal(["Fecha Pago", "Fecha", "date"]) || new Date().toISOString().split('T')[0]),
           cedulaRepresentative: cleanCedula,
-          matricula: p["Matricula"] || p["Matrícula"] || p.matricula || 'N/A',
-          level: (p["Nivel"] || p.level || Level.PRIMARIA) as Level,
-          method: (p["Tipo Pago"] || p["Metodo"] || p.method || 'Pago Móvil'),
+          matricula: String(getVal(["Matricula", "Matrícula", "matricula"]) || 'N/A'),
+          level: (getVal(["Nivel", "Level", "nivel"]) || Level.PRIMARIA) as Level,
+          method: String(getVal(["Tipo Pago", "Metodo", "method"]) || 'Pago Móvil'),
           reference: ref,
           amount: isNaN(amount) ? 0 : amount,
-          observations: `[OFICINA VIRTUAL] ${p["Observaciones"] || p.observations || ''}`,
+          observations: `[OFICINA VIRTUAL] ${getVal(["Observaciones", "observations"]) || ''}`,
           status: PaymentStatus.PENDIENTE,
           type: 'TOTAL',
           pendingBalance: 0
         };
       });
     } catch (error) {
-      console.error('Error sincronizando Oficina Virtual:', error);
+      console.error('Error crítico sincronizando Oficina Virtual:', error);
       return [];
     }
   },
 
   /**
-   * Sincroniza datos hacia ColegioPay
+   * Sincroniza el estado global de la App hacia la hoja ColegioPay
    */
   async syncAll(data: { users: User[], representatives: Representative[], payments: PaymentRecord[], fees: LevelFees }) {
     const url = this.getScriptUrl();
     if (!this.isValidConfig()) return false;
 
-    // Preparar el Ledger para la hoja de cálculo
-    const ledger = data.representatives.map(rep => {
-      const totalDue = rep.totalAccruedDebt || 0;
-      const totalPaid = data.payments
-        .filter(p => p.cedulaRepresentative === rep.cedula && p.status === PaymentStatus.VERIFICADO)
-        .reduce((sum, p) => sum + p.amount, 0);
-      
-      return {
-        representante: `${rep.firstName} ${rep.lastName}`,
-        cedula: rep.cedula,
-        matricula: rep.matricula,
-        telefono: rep.phone,
-        alumnos: rep.students.map(s => `${s.fullName} (${s.level})`).join(' | '),
-        deudaAcumulada: totalDue,
-        totalAbonado: totalPaid,
-        saldoPendiente: Math.max(0, totalDue - totalPaid)
-      };
-    });
-
     try {
+      // Calcular Ledger para reporte en Drive
+      const ledger = data.representatives.map(rep => {
+        const totalDue = rep.totalAccruedDebt || 0;
+        const totalPaid = data.payments
+          .filter(p => p.cedulaRepresentative === rep.cedula && p.status === PaymentStatus.VERIFICADO)
+          .reduce((sum, p) => sum + p.amount, 0);
+        
+        return {
+          representante: `${rep.firstName} ${rep.lastName}`,
+          cedula: rep.cedula,
+          matricula: rep.matricula,
+          telefono: rep.phone,
+          alumnos: rep.students.map(s => `${s.fullName} (${s.level})`).join(' | '),
+          deudaAcumulada: totalDue,
+          totalAbonado: totalPaid,
+          saldoPendiente: Math.max(0, totalDue - totalPaid)
+        };
+      });
+
       const payload = { 
         action: 'sync_all', 
         sheetId: COLEGIO_PAY_SHEET_ID,
-        data: {
-          ...data,
-          ledger: ledger
-        } 
+        data: { ...data, ledger } 
       };
 
       await fetch(url, {
@@ -158,4 +161,3 @@ export const sheetService = {
     }
   }
 };
-export default sheetService;
