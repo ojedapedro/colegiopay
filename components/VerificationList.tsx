@@ -68,14 +68,14 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, fees, on
           onImportExternal(news);
           alert(`✅ OFICINA VIRTUAL: Se cargaron ${news.length} registros nuevos para verificar.`);
         } else {
-          alert("ℹ️ No hay registros nuevos en la Oficina Virtual.");
+          alert("ℹ️ No hay registros nuevos en la Oficina Virtual o ya fueron importados.");
         }
       } else {
-        alert("ℹ️ La Oficina Virtual no reporta pagos nuevos en este momento.");
+        alert("ℹ️ La Oficina Virtual no reportó datos procesables. Es posible que no existan pagos nuevos o el servidor devolvió un estado de 'Servicio Activo' sin registros.");
       }
     } catch (e) {
       console.error(e);
-      alert("❌ ERROR: No se pudo conectar con la base de datos externa.");
+      alert("❌ ERROR: No se pudo establecer conexión con la base de datos de la Oficina Virtual. Verifique que la URL del script sea correcta y tenga permisos.");
     } finally {
       setIsSyncingExternal(false);
     }
@@ -106,7 +106,7 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, fees, on
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* Banner de Oficina Virtual Master - Diseño fiel a la imagen del usuario */}
+      {/* Banner de Oficina Virtual Master */}
       <div className="bg-[#0c1221] p-6 rounded-3xl shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 border border-slate-800/40">
         <div className="flex items-center gap-5">
           <div className="w-14 h-14 bg-[#1a233a] rounded-2xl border border-blue-500/20 flex items-center justify-center text-blue-400">
@@ -132,7 +132,7 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, fees, on
           }`}
         >
           <RefreshCw size={18} className={isSyncingExternal ? 'animate-spin' : ''} />
-          {isSyncingExternal ? 'SINCRONIZANDO...' : 'SINCRONIZAR OFICINA'}
+          {isSyncingExternal ? 'PROCESANDO...' : 'SINCRONIZAR OFICINA'}
         </button>
       </div>
 
