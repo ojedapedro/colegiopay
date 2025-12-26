@@ -1,9 +1,8 @@
 
-import { User, Representative, PaymentRecord, LevelFees, PaymentStatus } from '../types';
+import { User, Representative, PaymentRecord, LevelFees, PaymentStatus, Level } from '../types';
 
-// ID de la Base de Datos Principal de la Aplicación (ColegioPay)
+// IDs de las Hojas de Cálculo según requerimiento
 const COLEGIO_PAY_SHEET_ID = '13lZSsC2YeTv6hPd1ktvOsexcIj9CA2wcpbxU-gvdVLo';
-// ID de la Base de Datos Externa (Oficina Virtual / Padres)
 const VIRTUAL_OFFICE_SHEET_ID = '17slRl7f9AKQgCEGF5jDLMGfmOc-unp1gXSRpYFGX1Eg';
 
 const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzBdfC3yAPAtheuAMpBb1jtW98uHIsGL0dONHl33w891WlgyrbsunesQMHqvhkcHDg21A/exec';
@@ -24,7 +23,7 @@ export const sheetService = {
   },
 
   /**
-   * Obtiene todos los datos desde la hoja COLEGIO PAY (Base Interna)
+   * Obtiene datos de la Base de Datos ColegioPay (Interna)
    */
   async fetchAll() {
     const url = this.getScriptUrl();
@@ -33,11 +32,10 @@ export const sheetService = {
     try {
       const response = await fetch(`${url}?action=read_all&sheetId=${COLEGIO_PAY_SHEET_ID}`, {
         method: 'GET',
-        cache: 'no-store',
-        mode: 'cors'
+        cache: 'no-store'
       });
       
-      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
       const data = await response.json();
       
       if (data && data.payments) {
@@ -48,14 +46,14 @@ export const sheetService = {
       }
       return data;
     } catch (error) {
-      console.warn('Fallo al leer base ColegioPay:', error);
+      console.error('Error al leer ColegioPay:', error);
       return null;
     }
   },
 
   /**
-   * Sincroniza con la OFICINA VIRTUAL (Base Externa)
-   * Trae los registros cargados por los representantes.
+   * Obtiene datos de la OFICINA VIRTUAL (Externa - Padres)
+   * Mapeo robusto de columnas para evitar fallos por nombres de headers.
    */
   async fetchVirtualOfficePayments() {
     const url = this.getScriptUrl();
@@ -63,36 +61,41 @@ export const sheetService = {
 
     try {
       // Forzamos la consulta a la hoja 'consolidado' del ID de Oficina Virtual
-      const response = await fetch(`${url}?action=get_external_payments&sheetId=${VIRTUAL_OFFICE_SHEET_ID}&sheetName=consolidado`, {
+      const targetUrl = `${url}?action=get_external_payments&sheetId=${VIRTUAL_OFFICE_SHEET_ID}&sheetName=consolidado`;
+      
+      const response = await fetch(targetUrl, {
         method: 'GET',
-        cache: 'no-store',
-        mode: 'cors'
+        cache: 'no-store'
       });
 
-      if (!response.ok) throw new Error('Error al conectar con la Oficina Virtual');
+      if (!response.ok) throw new Error('Fallo de conexión con Oficina Virtual');
       
       const result = await response.json();
-      // El script puede devolver {payments: [...]} o el array directamente
       const rawPayments = Array.isArray(result) ? result : (result.payments || result.data || []);
       
       if (rawPayments.length === 0) return [];
 
       return rawPayments.map((p: any) => {
-        const rawCedula = String(p["Cedula Representan"] || p.cedulaRepresen || p.cedulaRepresentative || p.cedula || '0');
+        // Buscamos variaciones comunes de nombres de columnas que suelen venir del Sheet
+        const rawCedula = String(p["Cedula Representan"] || p["Cédula"] || p.cedulaRepresen || p.cedulaRepresentative || p.cedula || '0');
         const cleanCedula = rawCedula.replace('V-', '').replace('E-', '').trim();
-        const ref = String(p["Referencia"] || p.reference || '000000');
-        const ts = String(p["Timestamp"] || p.timestamp || Date.now());
         
+        const rawMonto = p["Monto"] || p["Amount"] || p.amount || 0;
+        const amount = typeof rawMonto === 'string' ? parseFloat(rawMonto.replace(',', '.')) : parseFloat(rawMonto);
+
+        const ref = String(p["Referencia"] || p["Reference"] || p.reference || '000000');
+        const ts = String(p["Timestamp"] || p["Fecha"] || p.timestamp || new Date().toISOString());
+
         return {
-          id: `EXT-${ref}-${ts.replace(/[:\s\-\/]/g, '')}`,
-          timestamp: p["Timestamp"] || p.timestamp || new Date().toISOString(),
-          paymentDate: p["Fecha Pago"] || p.paymentDate || new Date().toISOString().split('T')[0],
+          id: `EXT-${ref}-${cleanCedula}-${Date.now()}`, // ID único compuesto
+          timestamp: ts,
+          paymentDate: p["Fecha Pago"] || p["Fecha"] || p.paymentDate || new Date().toISOString().split('T')[0],
           cedulaRepresentative: cleanCedula,
-          matricula: p["Matricula"] || p.matricula || 'N/A',
-          level: p["Nivel"] || p.level || 'Primaria',
-          method: p["Tipo Pago"] || p.method || 'Pago Móvil',
+          matricula: p["Matricula"] || p["Matrícula"] || p.matricula || 'N/A',
+          level: (p["Nivel"] || p.level || Level.PRIMARIA) as Level,
+          method: (p["Tipo Pago"] || p["Metodo"] || p.method || 'Pago Móvil'),
           reference: ref,
-          amount: parseFloat(String(p["Monto"] || p.amount || 0).replace(',', '.')),
+          amount: isNaN(amount) ? 0 : amount,
           observations: `[OFICINA VIRTUAL] ${p["Observaciones"] || p.observations || ''}`,
           status: PaymentStatus.PENDIENTE,
           type: 'TOTAL',
@@ -106,13 +109,13 @@ export const sheetService = {
   },
 
   /**
-   * Envía los datos a la nube para guardarlos en la hoja COLEGIO PAY
+   * Sincroniza datos hacia ColegioPay
    */
   async syncAll(data: { users: User[], representatives: Representative[], payments: PaymentRecord[], fees: LevelFees }) {
     const url = this.getScriptUrl();
     if (!this.isValidConfig()) return false;
 
-    // Calculamos el ledger para tener un espejo visual en el Google Sheet
+    // Preparar el Ledger para la hoja de cálculo
     const ledger = data.representatives.map(rep => {
       const totalDue = rep.totalAccruedDebt || 0;
       const totalPaid = data.payments
@@ -134,14 +137,13 @@ export const sheetService = {
     try {
       const payload = { 
         action: 'sync_all', 
-        sheetId: COLEGIO_PAY_PAYMENTS_SHEET_ID_DUMMY, // El script suele tener el ID hardcoded pero lo enviamos por si acaso
+        sheetId: COLEGIO_PAY_SHEET_ID,
         data: {
           ...data,
           ledger: ledger
         } 
       };
 
-      // Usamos text/plain para evitar problemas de CORS preflight en Apps Script
       await fetch(url, {
         method: 'POST',
         mode: 'no-cors',
@@ -156,6 +158,4 @@ export const sheetService = {
     }
   }
 };
-
-// Constante interna para ayudar al script a identificar la hoja principal
-const COLEGIO_PAY_PAYMENTS_SHEET_ID_DUMMY = '13lZSsC2YeTv6hPd1ktvOsexcIj9CA2wcpbxU-gvdVLo';
+export default sheetService;
