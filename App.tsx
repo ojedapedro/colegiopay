@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Level, 
   Representative, 
@@ -12,7 +12,7 @@ import {
   UserRole
 } from './types';
 import { ICONS } from './constants';
-import { ChevronDown, ChevronUp, ShieldCheck, LayoutGrid, ClipboardList, Wallet, FileBarChart, Settings, Users, UserPlus, Bell } from 'lucide-react';
+import { ChevronDown, ChevronUp, ShieldCheck, LayoutGrid, ClipboardList, Wallet, FileBarChart, Settings, Users, UserPlus, Bell, Globe } from 'lucide-react';
 import { initialRepresentatives, initialPayments, initialUsers } from './services/mockData';
 import { sheetService } from './services/googleSheets';
 
@@ -26,14 +26,17 @@ import Auth from './components/Auth';
 import UserManagement from './components/UserManagement';
 import SettingsModule from './components/SettingsModule';
 import LedgerModule from './components/LedgerModule';
+import RepresentativePortal from './components/RepresentativePortal';
 
 const INSTITUTION_LOGO = "https://i.ibb.co/FbHJbvVT/images.png";
 
 const App: React.FC = () => {
+  const [appMode, setAppMode] = useState<'admin' | 'portal'>('portal'); // Por defecto oficina virtual
   const [activeTab, setActiveTab] = useState<'dashboard' | 'students' | 'payments' | 'verification' | 'reports' | 'users' | 'settings' | 'ledger'>('dashboard');
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentRep, setCurrentRep] = useState<Representative | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [representatives, setRepresentatives] = useState<Representative[]>([]);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
@@ -67,7 +70,6 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Función crítica: Devengo Mensual de Deuda
   const applyMonthlyAccrual = useCallback((currentReps: Representative[], currentFees: LevelFees) => {
     const now = new Date();
     const currentMonthKey = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
@@ -75,7 +77,6 @@ const App: React.FC = () => {
     let updated = false;
     const newReps = currentReps.map(rep => {
       if (rep.lastAccrualMonth !== currentMonthKey) {
-        // Calcular lo que debe por este mes (suma de todos sus alumnos)
         const monthlyTotal = rep.students.reduce((sum, student) => sum + (currentFees[student.level] || 0), 0);
         updated = true;
         return {
@@ -94,11 +95,6 @@ const App: React.FC = () => {
     }
     return null;
   }, []);
-
-  const handleImportExternal = (newExternalPayments: PaymentRecord[]) => {
-    const updatedPayments = [...newExternalPayments, ...payments];
-    updateData(users, representatives, updatedPayments, fees);
-  };
 
   const fetchCloudData = async () => {
     if (!sheetService.isValidConfig()) return;
@@ -127,50 +123,38 @@ const App: React.FC = () => {
       const localPays = savedPays ? JSON.parse(savedPays) : initialPayments;
       const localFees = savedFees ? JSON.parse(savedFees) : DEFAULT_LEVEL_FEES;
 
-      // Aplicar lógica de cobro mensual antes de setear estado
       const accruedReps = applyMonthlyAccrual(localReps, localFees);
-      
       const finalReps = accruedReps || localReps;
-      const finalPays = localPays;
-      const finalFees = localFees;
-      const finalUsers = localUsers;
-
-      setUsers(finalUsers);
+      
+      setUsers(localUsers);
       setRepresentatives(finalReps);
-      setPayments(finalPays);
-      setFees(finalFees);
+      setPayments(localPays);
+      setFees(localFees);
 
       const savedSession = localStorage.getItem('school_session');
       if (savedSession) {
         const parsed = JSON.parse(savedSession);
-        const found = finalUsers.find((u: User) => u.cedula === parsed.cedula);
-        setCurrentUser(found || parsed);
+        if (parsed.type === 'rep') {
+          const foundRep = finalReps.find((r: Representative) => r.cedula === parsed.cedula);
+          if (foundRep) setCurrentRep(foundRep);
+        } else {
+          const foundUser = localUsers.find((u: User) => u.cedula === parsed.cedula);
+          if (foundUser) setCurrentUser(foundUser);
+        }
       }
 
-      // Sincronizar si hubo cambios por devengo
       if (accruedReps) {
-        updateData(finalUsers, finalReps, finalPays, finalFees);
+        updateData(localUsers, finalReps, localPays, localFees);
       }
 
       if (sheetService.isValidConfig()) {
         const cloudData = await sheetService.fetchAll();
         if (cloudData && !cloudData.error) {
-          // Si descargamos de la nube, también aplicamos el devengo por si la nube está atrasada
-          const cloudReps = cloudData.representatives || finalReps;
-          const cloudFees = cloudData.fees || finalFees;
-          const accruedCloudReps = applyMonthlyAccrual(cloudReps, cloudFees);
-          
-          if (accruedCloudReps) {
-            updateData(cloudData.users || finalUsers, accruedCloudReps, cloudData.payments || finalPays, cloudFees);
-          } else {
-            if (cloudData.users) setUsers(cloudData.users);
-            if (cloudData.representatives) setRepresentatives(cloudData.representatives);
-            if (cloudData.payments) setPayments(cloudData.payments);
-            if (cloudData.fees) setFees(cloudData.fees);
-          }
           setCloudStatus('online');
-        } else {
-          setCloudStatus('offline');
+          if (cloudData.users) setUsers(cloudData.users);
+          if (cloudData.representatives) setRepresentatives(cloudData.representatives);
+          if (cloudData.payments) setPayments(cloudData.payments);
+          if (cloudData.fees) setFees(cloudData.fees);
         }
       }
       setIsLoading(false);
@@ -178,37 +162,109 @@ const App: React.FC = () => {
     loadData();
   }, [applyMonthlyAccrual]);
 
-  const isAdmin = currentUser?.role === UserRole.ADMIN;
-
-  const handleLogin = (user: User) => {
-    setCurrentUser(user);
-    if (user.role === UserRole.ADMIN && !users.find(u => u.cedula === user.cedula)) {
-      updateData([...users, user], representatives, payments, fees);
-    }
+  const handleLoginRep = (rep: Representative) => {
+    setCurrentRep(rep);
+    localStorage.setItem('school_session', JSON.stringify({ type: 'rep', cedula: rep.cedula }));
   };
-  
+
   const handleLogout = () => {
     localStorage.removeItem('school_session');
     setCurrentUser(null);
+    setCurrentRep(null);
     setActiveTab('dashboard');
   };
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center text-white p-8">
-        <img src={INSTITUTION_LOGO} alt="Logo" className="w-32 h-32 mb-8 object-contain animate-pulse" />
-        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Cargando Sistema...</p>
+      <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center text-white">
+        <img src={INSTITUTION_LOGO} alt="Logo" className="w-24 h-24 mb-6 animate-pulse" />
+        <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
+  // Vista de Oficina Virtual para Representantes
+  if (appMode === 'portal' && !currentRep) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white p-10 rounded-[2.5rem] shadow-2xl shadow-blue-900/10 border border-slate-100 animate-fadeIn">
+          <div className="text-center mb-8">
+            <img src={INSTITUTION_LOGO} alt="Logo" className="w-20 h-20 mx-auto mb-4" />
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Oficina <span className="text-blue-600">Virtual</span></h2>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Portal del Representante</p>
+          </div>
+
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Cédula del Representante</label>
+              <input 
+                type="text" 
+                placeholder="Ej. 12345678"
+                className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:bg-white outline-none font-bold text-slate-700 transition-all"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    const val = (e.target as HTMLInputElement).value;
+                    const found = representatives.find(r => r.cedula === val);
+                    if (found) handleLoginRep(found);
+                    else alert("Representante no registrado.");
+                  }
+                }}
+              />
+            </div>
+            <button 
+              onClick={() => {
+                const input = document.querySelector('input') as HTMLInputElement;
+                const found = representatives.find(r => r.cedula === input.value);
+                if (found) handleLoginRep(found);
+                else alert("Representante no registrado.");
+              }}
+              className="w-full py-5 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 uppercase tracking-widest text-sm"
+            >
+              Consultar Información
+            </button>
+
+            <button 
+              onClick={() => setAppMode('admin')}
+              className="w-full py-4 text-slate-400 text-xs font-bold uppercase tracking-widest hover:text-slate-600 transition-colors"
+            >
+              Acceso Personal Administrativo
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (appMode === 'portal' && currentRep) {
+    return (
+      <RepresentativePortal 
+        representative={currentRep} 
+        payments={payments.filter(p => p.cedulaRepresentative === currentRep.cedula)}
+        fees={fees}
+        onRegisterPayment={(p) => updateData(users, representatives, [p, ...payments], fees)}
+        onLogout={handleLogout}
+      />
+    );
+  }
+
+  // Flujo Administrativo (Igual que antes pero con botón para volver al portal)
   if (!currentUser) {
-    return <Auth users={users} onLogin={handleLogin} onRegister={(u) => updateData([...users, u], representatives, payments, fees)} />;
+    return (
+      <div className="relative">
+        <button 
+          onClick={() => setAppMode('portal')}
+          className="fixed top-6 right-6 z-50 px-4 py-2 bg-white/80 backdrop-blur text-blue-600 text-[10px] font-black uppercase tracking-widest rounded-xl border border-blue-100 shadow-sm"
+        >
+          Ir a Oficina Virtual
+        </button>
+        <Auth users={users} onLogin={(u) => { setCurrentUser(u); localStorage.setItem('school_session', JSON.stringify({ type: 'user', cedula: u.cedula })); }} onRegister={(u) => updateData([...users, u], representatives, payments, fees)} />
+      </div>
+    );
   }
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-[#f1f5f9]">
+      {/* Sidebar Admin (Igual) */}
       <aside className="w-full md:w-72 bg-[#0f172a] text-white flex flex-col shadow-2xl z-20">
         <div className="p-8 border-b border-slate-800">
           <div className="flex items-center gap-4">
@@ -234,7 +290,7 @@ const App: React.FC = () => {
           <NavItem active={activeTab === 'verification'} onClick={() => setActiveTab('verification')} icon={<ShieldCheck size={20} />} label="Verificación" />
           <NavItem active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} icon={<FileBarChart size={20} />} label="Reportes" />
 
-          {isAdmin && (
+          {currentUser.role === UserRole.ADMIN && (
             <>
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-4 mb-1 mt-4">Administración</p>
               <div className="space-y-1">
@@ -248,7 +304,6 @@ const App: React.FC = () => {
                   </div>
                   {isAdminOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                 </button>
-                
                 {isAdminOpen && (
                   <div className="pl-4 space-y-1 mt-1 animate-slideDown">
                     <NavItem active={activeTab === 'students'} onClick={() => setActiveTab('students')} icon={<UserPlus size={18} />} label="Matrícula" />
@@ -262,18 +317,24 @@ const App: React.FC = () => {
         </nav>
 
         <div className="p-6 bg-[#020617] border-t border-slate-800">
+          <button 
+            onClick={() => setAppMode('portal')}
+            className="flex items-center gap-3 w-full p-3 mb-4 bg-blue-600/20 text-blue-400 rounded-xl font-black text-[10px] uppercase tracking-widest border border-blue-500/20 hover:bg-blue-600/30 transition-all"
+          >
+            <Globe size={16} />
+            Vista Oficina Virtual
+          </button>
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-white shadow-inner">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-white">
               {currentUser.fullName.charAt(0)}
             </div>
-            <div className="overflow-hidden">
+            <div>
               <p className="text-sm font-bold truncate text-slate-200">{currentUser.fullName}</p>
               <p className="text-[10px] text-blue-500 font-bold uppercase tracking-wider">{currentUser.role}</p>
             </div>
           </div>
-          <button onClick={handleLogout} className="flex items-center gap-3 w-full p-3 text-slate-500 hover:text-rose-400 hover:bg-rose-900/20 rounded-xl transition-all font-bold text-xs group">
-            <ICONS.Exit.type {...ICONS.Exit.props} className="group-hover:rotate-12 transition-transform" /> 
-            <span>Cerrar Sesión</span>
+          <button onClick={handleLogout} className="flex items-center gap-3 w-full p-3 text-slate-500 hover:text-rose-400 hover:bg-rose-900/20 rounded-xl transition-all font-bold text-xs">
+            {ICONS.Exit} <span>Cerrar Sesión</span>
           </button>
         </div>
       </aside>
@@ -300,8 +361,8 @@ const App: React.FC = () => {
           </div>
           <div className="flex items-center gap-3">
              {isSyncing && <span className="text-[10px] font-black text-blue-600 animate-pulse tracking-widest">GUARDANDO CAMBIOS...</span>}
-             <button onClick={fetchCloudData} className="p-3 bg-white border border-slate-200 rounded-2xl shadow-sm text-slate-400 hover:text-blue-600 hover:shadow-md transition-all active:scale-95" title="Sincronizar Datos">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 16h5v5"></path></svg>
+             <button onClick={fetchCloudData} className="p-3 bg-white border border-slate-200 rounded-2xl shadow-sm text-slate-400 hover:text-blue-600 transition-all">
+                <RefreshCcw size={20} />
              </button>
           </div>
         </header>
@@ -311,7 +372,7 @@ const App: React.FC = () => {
           {activeTab === 'students' && <StudentRegistration onRegister={(r) => updateData(users, [...representatives, r], payments, fees)} representatives={representatives} />}
           {activeTab === 'payments' && <PaymentModule onPay={(p) => updateData(users, representatives, [p, ...payments], fees)} representatives={representatives} payments={payments} fees={fees} />}
           {activeTab === 'ledger' && <LedgerModule representatives={representatives} payments={payments} fees={fees} />}
-          {activeTab === 'verification' && <VerificationList payments={payments} representatives={representatives} fees={fees} onVerify={(id, status) => updateData(users, representatives, payments.map(p => p.id === id ? {...p, status} : p), fees)} onImportExternal={handleImportExternal} />}
+          {activeTab === 'verification' && <VerificationList payments={payments} representatives={representatives} fees={fees} onVerify={(id, status) => updateData(users, representatives, payments.map(p => p.id === id ? {...p, status} : p), fees)} />}
           {activeTab === 'reports' && <ReportsModule payments={payments} representatives={representatives} />}
           {activeTab === 'users' && <UserManagement users={users} onUpdateRole={(c, r) => updateData(users.map(u => u.cedula === c ? {...u, role: r} : u), representatives, payments, fees)} onDeleteUser={(c) => updateData(users.filter(u => u.cedula !== c), representatives, payments, fees)} />}
           {activeTab === 'settings' && <SettingsModule fees={fees} onUpdateFees={(f) => updateData(users, representatives, payments, f)} />}
@@ -330,6 +391,10 @@ const NavItem: React.FC<{ active: boolean; onClick: () => void; icon: React.Reac
   >
     {icon} <span className="tracking-tight">{label}</span>
   </button>
+);
+
+const RefreshCcw = ({ size }: { size: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 16h5v5"></path></svg>
 );
 
 export default App;
