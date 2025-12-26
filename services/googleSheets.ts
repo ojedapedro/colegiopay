@@ -2,7 +2,7 @@
 import { User, Representative, PaymentRecord, LevelFees, PaymentStatus } from '../types';
 
 const VIRTUAL_OFFICE_SHEET_ID = '17slRl7f9AKQgCEGF5jDLMGfmOc-unp1gXSRpYFGX1Eg';
-const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzs9a_-0PIWvOPWwwzfgQdWBzUZMPwd7AV8NVTOHjsXZPKBEcFKP2X6nezc2O8EZBhA/exec';
+const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzBdfC3yAPAtheuAMpBb1jtW98uHIsGL0dONHl33w891WlgyrbsunesQMHqvhkcHDg21A/exec';
 
 export const sheetService = {
   getScriptUrl() {
@@ -114,7 +114,7 @@ export const sheetService = {
     if (!this.isValidConfig()) return false;
 
     const ledger = data.representatives.map(rep => {
-      const totalDue = rep.students.reduce((sum, s) => sum + (data.fees[s.level] || 0), 0);
+      const totalDue = rep.totalAccruedDebt || 0;
       const totalPaid = data.payments
         .filter(p => p.cedulaRepresentative === rep.cedula && p.status === PaymentStatus.VERIFICADO)
         .reduce((sum, p) => sum + p.amount, 0);

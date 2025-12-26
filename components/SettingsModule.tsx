@@ -20,7 +20,7 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
   };
 
   const handleRestoreDefault = () => {
-    const defaultUrl = 'https://script.google.com/macros/s/AKfycbzs9a_-0PIWvOPWwwzfgQdWBzUZMPwd7AV8NVTOHjsXZPKBEcFKP2X6nezc2O8EZBhA/exec';
+    const defaultUrl = 'https://script.google.com/macros/s/AKfycbzBdfC3yAPAtheuAMpBb1jtW98uHIsGL0dONHl33w891WlgyrbsunesQMHqvhkcHDg21A/exec';
     setScriptUrl(defaultUrl);
     sheetService.setScriptUrl(defaultUrl);
     setSaveStatus('saved');
@@ -45,7 +45,7 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
     }, 1200);
   };
 
-  const isOfficialUrl = scriptUrl.includes('AKfycbzs9a_-0PIWvOPWwwzfgQdWBzUZMPwd7AV8NVTOHjsXZPKBEcFKP2X6nezc2O8EZBhA');
+  const isOfficialUrl = scriptUrl.includes('AKfycbzBdfC3yAPAtheuAMpBb1jtW98uHIsGL0dONHl33w891WlgyrbsunesQMHqvhkcHDg21A');
 
   return (
     <div className="space-y-8 animate-fadeIn pb-20">
