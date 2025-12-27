@@ -1,17 +1,18 @@
+
 import { User, Representative, PaymentRecord, LevelFees, PaymentStatus, Level, PaymentMethod } from '../types';
 
 /**
- * ID de la Base de Datos Principal (SistemCol)
+ * ID de la Base de Datos Principal (SistemCol) - Visto en URL de Imagen 3
  */
 const SISTEM_COL_SHEET_ID = '13lZSsC2YeTv6hPd1ktvOsexcIj9CA2wcpbxU-gvdVLo';
 
 /**
- * ID de la Oficina Virtual (Proporcionado por usuario)
+ * ID de la Oficina Virtual - Visto en URL de Imagen 1
  */
 const VIRTUAL_OFFICE_SHEET_ID = '17slRl7f9AKQgCEGF5jDLMGfmOc-unp1gXSRpYFGX1Eg';
 
 /**
- * URL por defecto del Apps Script
+ * URL de implementación del Apps Script (Debe terminar en /exec)
  */
 const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxBBsRqQ9nZykVioVqgQ_I3wmCYz3gncOM1rxZbFfgEPF-ijLp0Qp63fAKjsNxcytPNIQ/exec';
 
@@ -23,7 +24,8 @@ const cleanId = (id: any): string => {
 export const sheetService = {
   getScriptUrl() {
     const saved = localStorage.getItem('school_script_url');
-    return (saved && saved.trim() !== '') ? saved.trim() : DEFAULT_SCRIPT_URL;
+    const url = (saved && saved.trim() !== '') ? saved.trim() : DEFAULT_SCRIPT_URL;
+    return url;
   },
 
   setScriptUrl(url: string) {
@@ -32,31 +34,38 @@ export const sheetService = {
 
   isValidConfig() {
     const url = this.getScriptUrl();
-    return url.startsWith('https://script.google.com/macros/s/') && url.endsWith('/exec');
+    return url && url.startsWith('https://script.google.com/macros/s/') && url.endsWith('/exec');
   },
 
+  /**
+   * Intenta parsear la respuesta del servidor de forma segura.
+   * Si devuelve HTML (página de login de Google), lanza error descriptivo.
+   */
   async safeParseJson(response: Response) {
     try {
       const text = await response.text();
-      // Si la respuesta es HTML, significa que Google nos está enviando a una página de login/error
+      if (!text) return null;
       if (text.trim().toLowerCase().startsWith('<!doctype')) {
-        console.error('El servidor devolvió HTML en lugar de JSON. Verifique que el script esté publicado como "Cualquiera" (Anyone).');
-        return null;
+        throw new Error('El script no está configurado como "Cualquiera" (Anyone). Google devolvió una página de acceso.');
       }
       return JSON.parse(text);
-    } catch (e) {
-      console.error('Error al parsear JSON del servidor:', e);
+    } catch (e: any) {
+      console.error('Error al procesar respuesta del servidor:', e.message);
       return null;
     }
   },
 
+  /**
+   * Lee la base de datos principal SistemCol
+   */
   async fetchAll() {
     if (!this.isValidConfig()) return null;
     const url = this.getScriptUrl();
 
     try {
-      // Usamos parámetros simples para evitar Preflight OPTIONS que suelen fallar en Apps Script
-      const response = await fetch(`${url}?action=read_all&sheetId=${SISTEM_COL_SHEET_ID}`, {
+      // Usamos GET con parámetros para evitar problemas de CORS preflight
+      const fetchUrl = `${url}?action=read_all&sheetId=${SISTEM_COL_SHEET_ID}&t=${Date.now()}`;
+      const response = await fetch(fetchUrl, {
         method: 'GET',
         mode: 'cors',
         redirect: 'follow',
@@ -65,10 +74,11 @@ export const sheetService = {
       
       const data = await this.safeParseJson(response);
       if (data && !data.error) {
+        // Normalización de datos para asegurar compatibilidad
         if (data.payments) {
           data.payments = data.payments.map((p: any) => ({
             ...p,
-            cedulaRepresentative: cleanId(p.cedulaRepresen || p.cedulaRepresentative || p.cedula)
+            cedulaRepresentative: cleanId(p.cedulaRepresentative || p.cedula)
           }));
         }
         if (data.representatives) {
@@ -81,17 +91,21 @@ export const sheetService = {
       }
       return null;
     } catch (error) {
-      console.warn('Error de red al conectar con SistemCol:', error);
+      console.warn('Fallo de red en SistemCol (fetchAll). Probablemente CORS o URL incorrecta.');
       return null;
     }
   },
 
+  /**
+   * Lee los pagos reportados desde la Oficina Virtual (ID: 17slRl...)
+   * Mapeo exacto según Imagen 2 de la hoja "Pagos"
+   */
   async fetchVirtualOfficePayments() {
     if (!this.isValidConfig()) return [];
     const url = this.getScriptUrl();
 
     try {
-      const targetUrl = `${url}?action=get_external_payments&sheetId=${VIRTUAL_OFFICE_SHEET_ID}&sheetName=OficinaVirtual&t=${Date.now()}`;
+      const targetUrl = `${url}?action=get_external_payments&sheetId=${VIRTUAL_OFFICE_SHEET_ID}&sheetName=Pagos&t=${Date.now()}`;
       
       const response = await fetch(targetUrl, {
         method: 'GET',
@@ -104,39 +118,55 @@ export const sheetService = {
 
       const rawPayments = Array.isArray(result) ? result : (result.payments || result.data || []);
       
-      return rawPayments.map((p: any) => {
-        const cleanedCedula = cleanId(p["Cedula Represe"] || p["Cedula Representante"] || p.cedula);
-        const rawMonto = p["Monto"] || p["Amount"] || 0;
-        const amount = typeof rawMonto === 'string' ? parseFloat(rawMonto.replace(',', '.')) : parseFloat(rawMonto);
-        const ref = String(p["Referencia"] || p.reference || '000000');
-        
-        return {
-          id: `OV-${ref}-${cleanedCedula}-${Date.now()}`,
-          timestamp: String(p["Timestamp"] || new Date().toISOString()),
-          paymentDate: String(p["Fecha Pago"] || p["Fecha Registro"] || new Date().toISOString().split('T')[0]),
-          cedulaRepresentative: cleanedCedula,
-          matricula: String(p["Matricula"] || 'N/A'),
-          level: (p["Nivel"] || Level.PRIMARIA) as Level,
-          method: (p["Tipo Pago"] || PaymentMethod.PAGO_MOVIL) as PaymentMethod,
-          reference: ref,
-          amount: isNaN(amount) ? 0 : amount,
-          observations: `[OFICINA VIRTUAL] ${p["Observaciones"] || ''}`,
-          status: PaymentStatus.PENDIENTE,
-          type: (p["Modo Pago"] === 'Abono' ? 'ABONO' : 'TOTAL') as 'ABONO' | 'TOTAL',
-          pendingBalance: 0
-        };
-      });
+      return rawPayments.map((p: any) => ({
+        id: String(p.id || `OV-${Date.now()}`),
+        timestamp: String(p.timestamp || new Date().toISOString()),
+        paymentDate: String(p.paymentDate || new Date().toISOString().split('T')[0]),
+        cedulaRepresentative: cleanId(p.cedulaRepresentative),
+        matricula: String(p.matricula || 'N/A'),
+        level: (p.level || Level.PRIMARIA) as Level,
+        method: (p.method || PaymentMethod.PAGO_MOVIL) as PaymentMethod,
+        reference: String(p.reference || ''),
+        amount: parseFloat(String(p.amount).replace(',', '.')) || 0,
+        observations: String(p.observations || ''),
+        status: PaymentStatus.PENDIENTE,
+        type: (String(p.type).toUpperCase() === 'ABONO' ? 'ABONO' : 'TOTAL') as 'ABONO' | 'TOTAL',
+        pendingBalance: parseFloat(String(p.pendingBalance).replace(',', '.')) || 0
+      }));
     } catch (error) {
-      console.warn('Error de red al conectar con Oficina Virtual:', error);
+      console.warn('Fallo de red en Oficina Virtual. Verifique permisos del script.');
       return [];
     }
   },
 
+  /**
+   * Sincroniza todos los datos y genera la hoja "CuentasPorCobrar"
+   * Formato exacto según Imagen 3
+   */
   async syncAll(data: { users: User[], representatives: Representative[], payments: PaymentRecord[], fees: LevelFees }) {
     if (!this.isValidConfig()) return false;
     const url = this.getScriptUrl();
 
     try {
+      // Generamos el libro de cuentas por cobrar exactamente como en la imagen 3
+      const ledger = data.representatives.map(rep => {
+        const totalDue = rep.totalAccruedDebt || 0;
+        const totalPaid = data.payments
+          .filter(p => cleanId(p.cedulaRepresentative) === cleanId(rep.cedula) && p.status === PaymentStatus.VERIFICADO)
+          .reduce((sum, p) => sum + p.amount, 0);
+        
+        return {
+          representante: `${rep.firstName} ${rep.lastName}`,
+          cedula: rep.cedula,
+          matricula: rep.matricula,
+          telefono: rep.phone,
+          alumnos: rep.students.map(s => `${s.fullName} (${s.level})`).join(' | '),
+          deudaAcumulada: totalDue,
+          totalAbonado: totalPaid,
+          saldoPendiente: Math.max(0, totalDue - totalPaid)
+        };
+      });
+
       const payload = { 
         action: 'sync_all', 
         sheetId: SISTEM_COL_SHEET_ID,
@@ -144,11 +174,12 @@ export const sheetService = {
           users: data.users,
           representatives: data.representatives,
           payments: data.payments,
-          fees: data.fees
+          fees: data.fees,
+          ledger // Esto actualizará la hoja "CuentasPorCobrar"
         } 
       };
 
-      // POST usando text/plain evita el chequeo OPTIONS pre-vuelo de CORS
+      // Usar mode: 'no-cors' para el POST asegura que los datos se envíen sin disparar errores de seguridad complejos
       await fetch(url, {
         method: 'POST',
         mode: 'no-cors',
@@ -158,7 +189,7 @@ export const sheetService = {
       
       return true;
     } catch (error) {
-      console.error('Error en syncAll:', error);
+      console.error('Error en sincronización (syncAll):', error);
       return false;
     }
   }

@@ -260,7 +260,7 @@ const App: React.FC = () => {
                activeTab === 'users' ? 'Control de Personal' :
                activeTab === 'settings' ? 'Ajustes del Sistema' : activeTab}
             </h2>
-            <p className="text-xs font-medium text-slate-500 mt-1">Gestión administrativa del Colegio San Francisco</p>
+            <p className="text-xs font-medium text-slate-500 mt-1">Gestión administrativa del Colegio  M. Beltrán Prieto Figueroa</p>
           </div>
           <div className="flex items-center gap-3">
              {isSyncing && <span className="text-[10px] font-black text-blue-600 animate-pulse tracking-widest">GUARDANDO CAMBIOS...</span>}
