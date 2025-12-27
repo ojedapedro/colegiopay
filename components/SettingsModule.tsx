@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Level, LevelFees } from '../types';
 import { ICONS } from '../constants';
@@ -37,10 +36,9 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
     setSaveStatus('testing');
     sheetService.setScriptUrl(cleanUrl);
     
-    // Pequeña espera para simular verificación
     setTimeout(() => {
       setSaveStatus('saved');
-      if (confirm('✅ CONEXIÓN ACTUALIZADA.\n\nSe refrescará la aplicación para intentar conectar con los nuevos parámetros.')) {
+      if (confirm('✅ CONEXIÓN ACTUALIZADA.\n\nSe refrescará la aplicación para validar los cambios.')) {
         window.location.reload();
       }
     }, 1000);
@@ -56,12 +54,12 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
             </div>
             <div>
               <h3 className="text-xl font-black uppercase tracking-tight">Conectividad de Datos</h3>
-              <p className="text-sm text-slate-400 font-medium">SistemCol + Oficina Virtual</p>
+              <p className="text-sm text-slate-400 font-medium">Motor de Sincronización PNIQ</p>
             </div>
           </div>
           <div className="flex items-center gap-2 bg-emerald-500/10 text-emerald-400 px-4 py-2 rounded-xl border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest">
             <ShieldCheck size={14} />
-            Motor PNIQ
+            Estado: {sheetService.isValidConfig() ? 'Configurado' : 'Pendiente'}
           </div>
         </div>
         
@@ -69,24 +67,24 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
           <div className="p-6 bg-amber-50 border border-amber-100 rounded-3xl flex gap-4">
             <div className="text-amber-500 mt-1"><AlertCircle size={24} /></div>
             <div className="space-y-2">
-              <h4 className="text-xs font-black text-amber-800 uppercase">¿Error 'Failed to Fetch'?</h4>
+              <h4 className="text-xs font-black text-amber-800 uppercase tracking-tighter">Solución al error &quot;Failed to Fetch&quot;</h4>
               <p className="text-[11px] text-amber-700 leading-relaxed font-medium">
-                Si ve este error, asegúrese de que en Google Apps Script haya seleccionado:<br/>
-                <strong>1. Implementar > Nueva implementación > Tipo: Aplicación Web.</strong><br/>
-                <strong>2. Ejecutar como: "Yo" (Tu correo).</strong><br/>
-                <strong>3. Quién tiene acceso: "Cualquiera" (Anyone).</strong>
+                Si el sistema no conecta, asegúrese de que el Apps Script esté publicado correctamente:<br/>
+                <strong>1. Implementar &gt; Nueva implementación &gt; Tipo: Aplicación Web.</strong><br/>
+                <strong>2. Ejecutar como: &quot;Yo&quot; (Tu correo).</strong><br/>
+                <strong>3. Quién tiene acceso: &quot;Cualquiera&quot; (Anyone).</strong>
               </p>
             </div>
           </div>
 
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">URL de Implementación</label>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">URL de Implementación (Apps Script)</label>
               <button 
                 onClick={handleRestoreDefault}
                 className="text-[9px] font-black text-blue-600 uppercase hover:underline flex items-center gap-1"
               >
-                <RefreshCcw size={10} /> Restaurar Oficial
+                <RefreshCcw size={10} /> Cargar URL Oficial
               </button>
             </div>
             
@@ -95,7 +93,7 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
                 value={scriptUrl}
                 onChange={(e) => setScriptUrl(e.target.value)}
                 rows={2}
-                placeholder="Pegue aquí la URL del Apps Script..."
+                placeholder="https://script.google.com/macros/s/.../exec"
                 className={`w-full p-5 bg-slate-50 border-2 rounded-3xl outline-none focus:ring-8 focus:ring-blue-500/5 font-mono text-xs leading-relaxed transition-all ${
                   saveStatus === 'error' ? 'border-rose-200 bg-rose-50 text-rose-600' : 'border-slate-100 focus:border-blue-500'
                 }`}
@@ -108,7 +106,7 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
                   className="p-5 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 uppercase tracking-widest text-xs flex items-center justify-center gap-3"
                 >
                   {saveStatus === 'testing' ? <RefreshCcw className="animate-spin" size={16} /> : null}
-                  {saveStatus === 'testing' ? 'Verificando...' : 'Guardar y Re-conectar'}
+                  {saveStatus === 'testing' ? 'Verificando...' : 'Guardar y Reconectar'}
                 </button>
                 
                 <a 
@@ -118,7 +116,7 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
                   className="p-5 bg-slate-100 text-slate-600 font-black rounded-2xl hover:bg-slate-200 transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-3"
                 >
                   <ICONS.Search.type {...ICONS.Search.props} size={16} />
-                  Ver Oficina Virtual (17slRl...)
+                  Abrir Base de Datos
                 </a>
               </div>
             </div>
@@ -134,7 +132,7 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
             </div>
             <div>
               <h3 className="text-lg font-bold text-slate-800">Tabla de Aranceles</h3>
-              <p className="text-sm text-slate-500 font-medium">Montos base para maternal, pre-escolar, primaria y secundaria</p>
+              <p className="text-sm text-slate-500 font-medium">Montos base para mensualidades automáticas</p>
             </div>
           </div>
         </div>

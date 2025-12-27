@@ -1,31 +1,23 @@
-
 import { User, Representative, PaymentRecord, LevelFees, PaymentStatus, Level, PaymentMethod } from '../types';
 
 /**
  * ID de la Base de Datos Principal (SistemCol)
- * Este ID se usa para el libro de cuentas maestro.
  */
 const SISTEM_COL_SHEET_ID = '13lZSsC2YeTv6hPd1ktvOsexcIj9CA2wcpbxU-gvdVLo';
 
 /**
- * ID de la Oficina Virtual proporcionado por el usuario
- * Aquí es donde se registró la nueva estructura de pagos.
+ * ID de la Oficina Virtual (Proporcionado por usuario)
  */
 const VIRTUAL_OFFICE_SHEET_ID = '17slRl7f9AKQgCEGF5jDLMGfmOc-unp1gXSRpYFGX1Eg';
 
 /**
- * URL del Apps Script proporcionado por el usuario
+ * URL por defecto del Apps Script
  */
 const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxBBsRqQ9nZykVioVqgQ_I3wmCYz3gncOM1rxZbFfgEPF-ijLp0Qp63fAKjsNxcytPNIQ/exec';
 
-/**
- * Limpia y normaliza la cédula
- */
 const cleanId = (id: any): string => {
   if (!id) return '0';
-  return String(id)
-    .replace(/[VEve\-\.\s]/g, '')
-    .trim();
+  return String(id).replace(/[VEve\-\.\s]/g, '').trim();
 };
 
 export const sheetService = {
@@ -43,36 +35,32 @@ export const sheetService = {
     return url.startsWith('https://script.google.com/macros/s/') && url.endsWith('/exec');
   },
 
-  /**
-   * Intenta parsear JSON de forma segura
-   */
   async safeParseJson(response: Response) {
     try {
       const text = await response.text();
-      if (!text || text.trim().startsWith('<!DOCTYPE')) {
-        console.warn('La respuesta no es un JSON válido. Verifique los permisos del Apps Script (Cualquiera/Anyone).');
+      // Si la respuesta es HTML, significa que Google nos está enviando a una página de login/error
+      if (text.trim().toLowerCase().startsWith('<!doctype')) {
+        console.error('El servidor devolvió HTML en lugar de JSON. Verifique que el script esté publicado como "Cualquiera" (Anyone).');
         return null;
       }
       return JSON.parse(text);
     } catch (e) {
-      console.error('Error al parsear JSON:', e);
+      console.error('Error al parsear JSON del servidor:', e);
       return null;
     }
   },
 
-  /**
-   * Lee datos de SistemCol (Libro Maestro)
-   */
   async fetchAll() {
     if (!this.isValidConfig()) return null;
     const url = this.getScriptUrl();
 
     try {
-      // Petición mínima sin headers para evitar preflight CORS
+      // Usamos parámetros simples para evitar Preflight OPTIONS que suelen fallar en Apps Script
       const response = await fetch(`${url}?action=read_all&sheetId=${SISTEM_COL_SHEET_ID}`, {
         method: 'GET',
-        mode: 'cors', // Google Apps Script soporta CORS en GET si se publica como 'Anyone'
-        redirect: 'follow'
+        mode: 'cors',
+        redirect: 'follow',
+        cache: 'no-store'
       });
       
       const data = await this.safeParseJson(response);
@@ -93,14 +81,11 @@ export const sheetService = {
       }
       return null;
     } catch (error) {
-      console.warn('Error en fetchAll (SistemCol):', error);
+      console.warn('Error de red al conectar con SistemCol:', error);
       return null;
     }
   },
 
-  /**
-   * Lee la nueva base de datos de la Oficina Virtual (ID: 17slRl...)
-   */
   async fetchVirtualOfficePayments() {
     if (!this.isValidConfig()) return [];
     const url = this.getScriptUrl();
@@ -120,7 +105,6 @@ export const sheetService = {
       const rawPayments = Array.isArray(result) ? result : (result.payments || result.data || []);
       
       return rawPayments.map((p: any) => {
-        // Mapeo según estructura de la Oficina Virtual
         const cleanedCedula = cleanId(p["Cedula Represe"] || p["Cedula Representante"] || p.cedula);
         const rawMonto = p["Monto"] || p["Amount"] || 0;
         const amount = typeof rawMonto === 'string' ? parseFloat(rawMonto.replace(',', '.')) : parseFloat(rawMonto);
@@ -143,59 +127,31 @@ export const sheetService = {
         };
       });
     } catch (error) {
-      console.warn('Error en fetchVirtualOfficePayments:', error);
+      console.warn('Error de red al conectar con Oficina Virtual:', error);
       return [];
     }
   },
 
-  /**
-   * Sincroniza los datos al libro maestro
-   */
   async syncAll(data: { users: User[], representatives: Representative[], payments: PaymentRecord[], fees: LevelFees }) {
     if (!this.isValidConfig()) return false;
     const url = this.getScriptUrl();
 
     try {
-      const cleanedReps = data.representatives.map(r => ({ ...r, cedula: cleanId(r.cedula) }));
-      const cleanedPays = data.payments.map(p => ({ 
-        ...p, 
-        cedulaRepresentative: cleanId(p.cedulaRepresentative)
-      }));
-
-      const ledger = cleanedReps.map(rep => {
-        const totalDue = rep.totalAccruedDebt || 0;
-        const totalPaid = cleanedPays
-          .filter(p => p.cedulaRepresentative === rep.cedula && p.status === PaymentStatus.VERIFICADO)
-          .reduce((sum, p) => sum + p.amount, 0);
-        
-        return {
-          representante: `${rep.firstName} ${rep.lastName}`,
-          cedula: rep.cedula,
-          matricula: rep.matricula,
-          telefono: rep.phone,
-          alumnos: rep.students.map(s => `${s.fullName} (${s.level})`).join(' | '),
-          deudaAcumulada: totalDue,
-          totalAbonado: totalPaid,
-          saldoPendiente: Math.max(0, totalDue - totalPaid)
-        };
-      });
-
       const payload = { 
         action: 'sync_all', 
         sheetId: SISTEM_COL_SHEET_ID,
         data: { 
           users: data.users,
-          representatives: cleanedReps,
-          payments: cleanedPays,
-          fees: data.fees,
-          ledger 
+          representatives: data.representatives,
+          payments: data.payments,
+          fees: data.fees
         } 
       };
 
-      // POST usando 'text/plain' para evitar preflight OPTIONS de CORS
+      // POST usando text/plain evita el chequeo OPTIONS pre-vuelo de CORS
       await fetch(url, {
         method: 'POST',
-        mode: 'no-cors', // Enviamos datos pero no necesitamos leer la respuesta por seguridad CORS en POST
+        mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload)
       });
