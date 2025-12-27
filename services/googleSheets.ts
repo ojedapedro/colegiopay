@@ -1,11 +1,10 @@
 
-import { User, Representative, PaymentRecord, LevelFees, PaymentStatus, Level } from '../types';
+import { User, Representative, PaymentRecord, LevelFees, PaymentStatus, Level, PaymentMethod } from '../types';
 
-// IDs de las Hojas de Cálculo proporcionados
+// ID de la Hoja de Cálculo SistemCol (ColegioPay)
 const COLEGIO_PAY_SHEET_ID = '13lZSsC2YeTv6hPd1ktvOsexcIj9CA2wcpbxU-gvdVLo';
-const VIRTUAL_OFFICE_SHEET_ID = '17slRl7f9AKQgCEGF5jDLMGfmOc-unp1gXSRpYFGX1Eg';
 
-// Nueva URL proporcionada por el usuario
+// URL del Apps Script (Motor de datos)
 const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxv497Vl2JiZMx4clinJ-BXmEEHRnZaxfho3-ZRTVp1gtmbk69ncbAHsxxCsPz03vOcyg/exec';
 
 /**
@@ -62,7 +61,6 @@ export const sheetService = {
       if (data && data.payments) {
         data.payments = data.payments.map((p: any) => ({
           ...p,
-          // Normalizamos la cédula que viene de la columna 'cedulaRepresen'
           cedulaRepresentative: cleanId(p.cedulaRepresen || p.cedulaRepresentative || p.cedula)
         }));
       }
@@ -82,14 +80,15 @@ export const sheetService = {
   },
 
   /**
-   * Obtiene datos de Oficina Virtual para verificación
+   * Obtiene datos de la pestaña 'OficinaVirtual' dentro de SistemCol
    */
   async fetchVirtualOfficePayments() {
     const url = this.getScriptUrl();
     if (!this.isValidConfig()) return [];
 
     try {
-      const targetUrl = `${url}?action=get_external_payments&sheetId=${VIRTUAL_OFFICE_SHEET_ID}&sheetName=consolidado&t=${Date.now()}`;
+      // Usamos el mismo COLEGIO_PAY_SHEET_ID pero especificamos la hoja 'OficinaVirtual'
+      const targetUrl = `${url}?action=get_external_payments&sheetId=${COLEGIO_PAY_SHEET_ID}&sheetName=OficinaVirtual&t=${Date.now()}`;
       
       const response = await fetch(targetUrl, {
         method: 'GET',
@@ -102,19 +101,24 @@ export const sheetService = {
       const rawPayments = Array.isArray(result) ? result : (result.payments || result.data || []);
       
       return rawPayments.map((p: any) => {
-        const cleanedCedula = cleanId(p["Cedula Representante"] || p["Cédula"] || p.cedula);
+        // Mapeo basado en la estructura de la imagen:
+        // Column D: Cedula Represe
+        // Column G: Tipo Pago
+        // Column H: Modo Pago (Abono / Total)
+        // Column J: Monto
+        const cleanedCedula = cleanId(p["Cedula Represe"] || p["Cedula Representante"] || p.cedula);
         const rawMonto = p["Monto"] || p["Amount"] || 0;
         const amount = typeof rawMonto === 'string' ? parseFloat(rawMonto.replace(',', '.')) : parseFloat(rawMonto);
         const ref = String(p["Referencia"] || p.reference || '000000');
         
         return {
-          id: `EXT-${ref}-${cleanedCedula}-${Date.now()}`,
+          id: `WEB-${ref}-${cleanedCedula}-${Date.now()}`,
           timestamp: String(p["Timestamp"] || new Date().toISOString()),
           paymentDate: String(p["Fecha Pago"] || p["Fecha Registro"] || new Date().toISOString().split('T')[0]),
           cedulaRepresentative: cleanedCedula,
-          matricula: String(p["Matricula"] || p["Matrícula"] || 'N/A'),
+          matricula: String(p["Matricula"] || 'N/A'),
           level: (p["Nivel"] || Level.PRIMARIA) as Level,
-          method: String(p["Tipo Pago"] || p["Modo Pago"] || 'Pago Móvil'),
+          method: (p["Tipo Pago"] || PaymentMethod.PAGO_MOVIL) as PaymentMethod,
           reference: ref,
           amount: isNaN(amount) ? 0 : amount,
           observations: `[OFICINA VIRTUAL] ${p["Observaciones"] || ''}`,
@@ -124,7 +128,7 @@ export const sheetService = {
         };
       });
     } catch (error) {
-      console.error('Error Oficina Virtual:', error);
+      console.error('Error leyendo OficinaVirtual:', error);
       return [];
     }
   },
@@ -134,12 +138,10 @@ export const sheetService = {
     if (!this.isValidConfig()) return false;
 
     try {
-      // Normalizamos antes de enviar para asegurar consistencia en la base de datos
       const cleanedReps = data.representatives.map(r => ({ ...r, cedula: cleanId(r.cedula) }));
       const cleanedPays = data.payments.map(p => ({ 
         ...p, 
-        cedulaRepresentative: cleanId(p.cedulaRepresentative),
-        cedulaRepresen: cleanId(p.cedulaRepresentative) // Mapeo para la hoja SistemCol
+        cedulaRepresentative: cleanId(p.cedulaRepresentative)
       }));
 
       const ledger = cleanedReps.map(rep => {

@@ -12,8 +12,7 @@ import {
   ShieldAlert, 
   Filter, 
   RefreshCw, 
-  Globe,
-  Hash
+  Globe
 } from 'lucide-react';
 import { sheetService } from '../services/googleSheets';
 
@@ -50,10 +49,10 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, fees, on
 
     setIsSyncingExternal(true);
     try {
+      // Ahora fetchVirtualOfficePayments lee la pestaña OficinaVirtual en SistemCol
       const externalPayments = await sheetService.fetchVirtualOfficePayments();
       
       if (externalPayments && externalPayments.length > 0 && onImportExternal) {
-        // Fingerprint para evitar duplicados (Ref + Monto + Cédula Normalizada)
         const existingFingerprints = new Set(payments.map(p => 
           `${String(p.reference).trim()}-${p.amount}-${String(p.cedulaRepresentative).trim()}`
         ));
@@ -74,7 +73,7 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, fees, on
       }
     } catch (e) {
       console.error(e);
-      alert("❌ ERROR: Fallo de conexión con el motor de Oficina Virtual.");
+      alert("❌ ERROR: Fallo de conexión con la pestaña OficinaVirtual.");
     } finally {
       setIsSyncingExternal(false);
     }
@@ -89,7 +88,6 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, fees, on
   };
 
   const getRepresentativeStats = (cedula: string) => {
-    // Normalizamos para la búsqueda
     const cleanSearch = String(cedula).replace(/[VEve\-\.\s]/g, '').trim();
     const rep = representatives.find(r => r.cedula.replace(/[VEve\-\.\s]/g, '').trim() === cleanSearch);
     
@@ -116,10 +114,10 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, fees, on
           </div>
           <div className="text-left">
             <h3 className="text-white font-bold text-xl tracking-tight leading-none">
-              Oficina Virtual <span className="text-blue-500">Master</span>
+              Pestaña: <span className="text-blue-500">OficinaVirtual</span>
             </h3>
             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.15em] mt-1.5 opacity-80">
-              ID HOJA: 17SLRL7F...FGX1EG
+              ORIGEN: SistemCol (13lZSsC...GvdVLo)
             </p>
           </div>
         </div>
@@ -163,7 +161,7 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, fees, on
               <div className="p-4 bg-amber-100 text-amber-600 rounded-2xl"><ShieldAlert size={24} /></div>
               <div>
                 <h3 className="text-xl font-black text-slate-800 tracking-tight">Pagos por Conciliar</h3>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Verifique la validez de los recibos</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Verifique la validez de los recibos de la Oficina Virtual</p>
               </div>
             </div>
             <span className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest">
@@ -178,7 +176,7 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, fees, on
                   <ShieldCheck size={40} />
                 </div>
                 <p className="text-xl font-black text-slate-800 uppercase">Sin Pendientes</p>
-                <p className="text-xs mt-2 text-slate-500 font-bold uppercase tracking-widest">Todos los pagos están verificados.</p>
+                <p className="text-xs mt-2 text-slate-500 font-bold uppercase tracking-widest">No hay pagos de la Oficina Virtual por validar.</p>
               </div>
             ) : (
               <table className="w-full text-left">
@@ -193,7 +191,6 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, fees, on
                 <tbody className="divide-y divide-slate-100">
                   {pending.map((p) => {
                     const methodInfo = getMethodInfo(p.method);
-                    const isExternal = p.observations.includes('OFICINA VIRTUAL');
                     const { currentBalance, name, matricula } = getRepresentativeStats(p.cedulaRepresentative);
                     const projectedBalance = Math.max(0, currentBalance - p.amount);
                     
@@ -251,7 +248,7 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, fees, on
           </div>
           
           <div className="p-6 bg-slate-50 border-t border-slate-100 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">
-            Los pagos verificados impactarán inmediatamente el libro de cuentas por cobrar.
+            Sincronizado directamente desde SistemCol > OficinaVirtual.
           </div>
         </div>
       </div>
