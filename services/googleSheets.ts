@@ -1,17 +1,25 @@
 
 import { User, Representative, PaymentRecord, LevelFees, PaymentStatus, Level, PaymentMethod } from '../types';
 
-// ID de la Base de Datos Principal (SistemCol)
+/**
+ * ID de la Base de Datos Principal (SistemCol)
+ * Este ID se usa para el libro de cuentas maestro.
+ */
 const SISTEM_COL_SHEET_ID = '13lZSsC2YeTv6hPd1ktvOsexcIj9CA2wcpbxU-gvdVLo';
 
-// ID de la Base de Datos de Reportes (Oficina Virtual)
+/**
+ * ID de la Oficina Virtual proporcionado por el usuario
+ * Aquí es donde se registró la nueva estructura de pagos.
+ */
 const VIRTUAL_OFFICE_SHEET_ID = '17slRl7f9AKQgCEGF5jDLMGfmOc-unp1gXSRpYFGX1Eg';
 
-// URL del Motor de Datos (Apps Script)
+/**
+ * URL del Apps Script proporcionado por el usuario
+ */
 const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxBBsRqQ9nZykVioVqgQ_I3wmCYz3gncOM1rxZbFfgEPF-ijLp0Qp63fAKjsNxcytPNIQ/exec';
 
 /**
- * Normaliza la cédula: elimina prefijos, puntos y espacios.
+ * Limpia y normaliza la cédula
  */
 const cleanId = (id: any): string => {
   if (!id) return '0';
@@ -23,7 +31,7 @@ const cleanId = (id: any): string => {
 export const sheetService = {
   getScriptUrl() {
     const saved = localStorage.getItem('school_script_url');
-    return saved || DEFAULT_SCRIPT_URL;
+    return (saved && saved.trim() !== '') ? saved.trim() : DEFAULT_SCRIPT_URL;
   },
 
   setScriptUrl(url: string) {
@@ -32,43 +40,40 @@ export const sheetService = {
 
   isValidConfig() {
     const url = this.getScriptUrl();
-    return url !== '' && url.includes('/macros/s/') && url.endsWith('/exec');
+    return url.startsWith('https://script.google.com/macros/s/') && url.endsWith('/exec');
   },
 
   /**
-   * Intenta parsear JSON de forma segura, manejando respuestas vacías o errores de HTML
+   * Intenta parsear JSON de forma segura
    */
   async safeParseJson(response: Response) {
     try {
       const text = await response.text();
       if (!text || text.trim().startsWith('<!DOCTYPE')) {
-        console.error('La respuesta del servidor no es JSON (posible error de permisos o script no publicado)');
+        console.warn('La respuesta no es un JSON válido. Verifique los permisos del Apps Script (Cualquiera/Anyone).');
         return null;
       }
       return JSON.parse(text);
     } catch (e) {
-      console.error('Error al parsear respuesta del servidor:', e);
+      console.error('Error al parsear JSON:', e);
       return null;
     }
   },
 
   /**
-   * Lee datos de SistemCol (Base Principal)
-   * Se simplifica la petición para evitar errores 'Failed to fetch' por CORS
+   * Lee datos de SistemCol (Libro Maestro)
    */
   async fetchAll() {
-    const url = this.getScriptUrl();
     if (!this.isValidConfig()) return null;
+    const url = this.getScriptUrl();
 
     try {
-      // Petición simplificada para evitar preflight de CORS
+      // Petición mínima sin headers para evitar preflight CORS
       const response = await fetch(`${url}?action=read_all&sheetId=${SISTEM_COL_SHEET_ID}`, {
         method: 'GET',
-        redirect: 'follow',
-        cache: 'no-store'
+        mode: 'cors', // Google Apps Script soporta CORS en GET si se publica como 'Anyone'
+        redirect: 'follow'
       });
-      
-      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
       
       const data = await this.safeParseJson(response);
       if (data && !data.error) {
@@ -84,31 +89,30 @@ export const sheetService = {
             cedula: cleanId(r.cedula)
           }));
         }
+        return data;
       }
-      return data;
+      return null;
     } catch (error) {
-      console.error('Error al leer SistemCol:', error);
+      console.warn('Error en fetchAll (SistemCol):', error);
       return null;
     }
   },
 
   /**
-   * Lee la base de datos de la Oficina Virtual
+   * Lee la nueva base de datos de la Oficina Virtual (ID: 17slRl...)
    */
   async fetchVirtualOfficePayments() {
-    const url = this.getScriptUrl();
     if (!this.isValidConfig()) return [];
+    const url = this.getScriptUrl();
 
     try {
       const targetUrl = `${url}?action=get_external_payments&sheetId=${VIRTUAL_OFFICE_SHEET_ID}&sheetName=OficinaVirtual&t=${Date.now()}`;
       
       const response = await fetch(targetUrl, {
         method: 'GET',
-        redirect: 'follow',
-        cache: 'no-store'
+        mode: 'cors',
+        redirect: 'follow'
       });
-
-      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
 
       const result = await this.safeParseJson(response);
       if (!result) return [];
@@ -116,6 +120,7 @@ export const sheetService = {
       const rawPayments = Array.isArray(result) ? result : (result.payments || result.data || []);
       
       return rawPayments.map((p: any) => {
+        // Mapeo según estructura de la Oficina Virtual
         const cleanedCedula = cleanId(p["Cedula Represe"] || p["Cedula Representante"] || p.cedula);
         const rawMonto = p["Monto"] || p["Amount"] || 0;
         const amount = typeof rawMonto === 'string' ? parseFloat(rawMonto.replace(',', '.')) : parseFloat(rawMonto);
@@ -138,17 +143,17 @@ export const sheetService = {
         };
       });
     } catch (error) {
-      console.error('Error leyendo Oficina Virtual:', error);
+      console.warn('Error en fetchVirtualOfficePayments:', error);
       return [];
     }
   },
 
   /**
-   * Sincroniza al Libro de Cuentas por Cobrar en SistemCol
+   * Sincroniza los datos al libro maestro
    */
   async syncAll(data: { users: User[], representatives: Representative[], payments: PaymentRecord[], fees: LevelFees }) {
-    const url = this.getScriptUrl();
     if (!this.isValidConfig()) return false;
+    const url = this.getScriptUrl();
 
     try {
       const cleanedReps = data.representatives.map(r => ({ ...r, cedula: cleanId(r.cedula) }));
@@ -187,18 +192,17 @@ export const sheetService = {
         } 
       };
 
-      // Usamos Content-Type text/plain para evitar comprobaciones pre-vuelo de CORS
-      // Google Apps Script lo recibirá como e.postData.contents
+      // POST usando 'text/plain' para evitar preflight OPTIONS de CORS
       await fetch(url, {
         method: 'POST',
-        redirect: 'follow',
+        mode: 'no-cors', // Enviamos datos pero no necesitamos leer la respuesta por seguridad CORS en POST
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload)
       });
       
       return true;
     } catch (error) {
-      console.error('Error de sincronización:', error);
+      console.error('Error en syncAll:', error);
       return false;
     }
   }
