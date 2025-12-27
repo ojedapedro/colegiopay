@@ -10,13 +10,13 @@ import {
   PaymentStatus, 
   User,
   UserRole
-} from './types';
-import { ICONS } from './constants';
+} from './types.ts';
+import { ICONS } from './constants.tsx';
 import { ChevronDown, ChevronUp, ShieldCheck, LayoutGrid, ClipboardList, Wallet, FileBarChart, Settings, Users, UserPlus, Bell, RefreshCcw } from 'lucide-react';
-import { initialRepresentatives, initialPayments, initialUsers } from './services/mockData';
-import { sheetService } from './services/googleSheets';
+import { initialRepresentatives, initialPayments, initialUsers } from './services/mockData.ts';
+import { sheetService } from './services/googleSheets.ts';
 
-// UI Components con extensiones explícitas para el bundler
+// UI Components con extensiones estrictas para ESM
 import Dashboard from './components/Dashboard.tsx';
 import StudentRegistration from './components/StudentRegistration.tsx';
 import PaymentModule from './components/PaymentModule.tsx';
@@ -85,44 +85,49 @@ const App: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
-      const savedReps = localStorage.getItem('school_reps_local');
-      const savedPays = localStorage.getItem('school_pays_local');
-      const savedUsers = localStorage.getItem('school_users_local');
-      const savedFees = localStorage.getItem('school_fees_local');
+      try {
+        const savedReps = localStorage.getItem('school_reps_local');
+        const savedPays = localStorage.getItem('school_pays_local');
+        const savedUsers = localStorage.getItem('school_users_local');
+        const savedFees = localStorage.getItem('school_fees_local');
 
-      const localUsers = savedUsers ? JSON.parse(savedUsers) : initialUsers;
-      const localReps = savedReps ? JSON.parse(savedReps) : initialRepresentatives;
-      const localPays = savedPays ? JSON.parse(savedPays) : initialPayments;
-      const localFees = savedFees ? JSON.parse(savedFees) : DEFAULT_LEVEL_FEES;
+        const localUsers = savedUsers ? JSON.parse(savedUsers) : initialUsers;
+        const localReps = savedReps ? JSON.parse(savedReps) : initialRepresentatives;
+        const localPays = savedPays ? JSON.parse(savedPays) : initialPayments;
+        const localFees = savedFees ? JSON.parse(savedFees) : DEFAULT_LEVEL_FEES;
 
-      setUsers(localUsers);
-      setRepresentatives(localReps);
-      setPayments(localPays);
-      setFees(localFees);
+        setUsers(localUsers);
+        setRepresentatives(localReps);
+        setPayments(localPays);
+        setFees(localFees);
 
-      const savedSession = localStorage.getItem('school_session');
-      if (savedSession) {
-        const parsed = JSON.parse(savedSession);
-        const foundUser = localUsers.find((u: User) => u.cedula === parsed.cedula);
-        if (foundUser) {
-          setCurrentUser(foundUser);
-        } else {
-          const foundRep = localReps.find((r: Representative) => r.cedula === parsed.cedula);
-          if (foundRep) setCurrentRep(foundRep);
+        const savedSession = localStorage.getItem('school_session');
+        if (savedSession) {
+          const parsed = JSON.parse(savedSession);
+          const foundUser = localUsers.find((u: User) => u.cedula === parsed.cedula);
+          if (foundUser) {
+            setCurrentUser(foundUser);
+          } else {
+            const foundRep = localReps.find((r: Representative) => r.cedula === parsed.cedula);
+            if (foundRep) setCurrentRep(foundRep);
+          }
         }
-      }
 
-      if (sheetService.isValidConfig()) {
-        const cloudData = await sheetService.fetchAll();
-        if (cloudData && !cloudData.error) {
-          setCloudStatus('online');
-          if (cloudData.users) setUsers(cloudData.users);
-          if (cloudData.representatives) setRepresentatives(cloudData.representatives);
-          if (cloudData.payments) setPayments(cloudData.payments);
-          if (cloudData.fees) setFees(cloudData.fees);
+        if (sheetService.isValidConfig()) {
+          const cloudData = await sheetService.fetchAll();
+          if (cloudData && !cloudData.error) {
+            setCloudStatus('online');
+            if (cloudData.users) setUsers(cloudData.users);
+            if (cloudData.representatives) setRepresentatives(cloudData.representatives);
+            if (cloudData.payments) setPayments(cloudData.payments);
+            if (cloudData.fees) setFees(cloudData.fees);
+          }
         }
+      } catch (err) {
+        console.error("Error al cargar datos:", err);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
     loadData();
   }, []);
@@ -147,7 +152,7 @@ const App: React.FC = () => {
       setCurrentRep(rep);
       localStorage.setItem('school_session', JSON.stringify({ cedula: rep.cedula }));
     } else {
-      alert("Identificación no reconocida en el sistema administrativo.");
+      alert("Identificación no reconocida en el sistema.");
     }
   };
 
@@ -155,7 +160,7 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center text-white">
         <img src={INSTITUTION_LOGO} alt="Logo" className="w-24 h-24 mb-6 animate-pulse" />
-        <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
