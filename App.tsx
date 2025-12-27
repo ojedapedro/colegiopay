@@ -9,29 +9,28 @@ import {
   PaymentStatus, 
   User,
   UserRole
-} from './types';
-import { ICONS } from './constants';
+} from './types.ts';
+import { ICONS } from './constants.tsx';
 import { ChevronDown, ChevronUp, ShieldCheck, LayoutGrid, ClipboardList, Wallet, FileBarChart, Settings, Users, UserPlus, Bell, RefreshCcw } from 'lucide-react';
-import { initialRepresentatives, initialPayments, initialUsers } from './services/mockData';
-import { sheetService } from './services/googleSheets';
+import { initialRepresentatives, initialPayments, initialUsers } from './services/mockData.ts';
+import { sheetService } from './services/googleSheets.ts';
 
-// UI Components - Se eliminan las extensiones para permitir la resolución correcta del bundler
-import Dashboard from './components/Dashboard';
-import StudentRegistration from './components/StudentRegistration';
-import PaymentModule from './components/PaymentModule';
-import VerificationList from './components/VerificationList';
-import ReportsModule from './components/ReportsModule';
-import Auth from './components/Auth';
-import UserManagement from './components/UserManagement';
-import SettingsModule from './components/SettingsModule';
-import LedgerModule from './components/LedgerModule';
-import RepresentativePortal from './components/RepresentativePortal';
+// UI Components con extensiones explícitas
+import Dashboard from './components/Dashboard.tsx';
+import StudentRegistration from './components/StudentRegistration.tsx';
+import PaymentModule from './components/PaymentModule.tsx';
+import VerificationList from './components/VerificationList.tsx';
+import ReportsModule from './components/ReportsModule.tsx';
+import Auth from './components/Auth.tsx';
+import UserManagement from './components/UserManagement.tsx';
+import SettingsModule from './components/SettingsModule.tsx';
+import LedgerModule from './components/LedgerModule.tsx';
+import RepresentativePortal from './components/RepresentativePortal.tsx';
 
 const INSTITUTION_LOGO = "https://i.ibb.co/FbHJbvVT/images.png";
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'students' | 'payments' | 'verification' | 'reports' | 'users' | 'settings' | 'ledger'>('dashboard');
-  const [isAdminOpen, setIsAdminOpen] = useState(false);
   
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentRep, setCurrentRep] = useState<Representative | null>(null);
@@ -49,10 +48,14 @@ const App: React.FC = () => {
     setPayments(newPays);
     setFees(newFees);
     
-    localStorage.setItem('school_users_local', JSON.stringify(newUsers));
-    localStorage.setItem('school_reps_local', JSON.stringify(newReps));
-    localStorage.setItem('school_pays_local', JSON.stringify(newPays));
-    localStorage.setItem('school_fees_local', JSON.stringify(newFees));
+    try {
+      localStorage.setItem('school_users_local', JSON.stringify(newUsers));
+      localStorage.setItem('school_reps_local', JSON.stringify(newReps));
+      localStorage.setItem('school_pays_local', JSON.stringify(newPays));
+      localStorage.setItem('school_fees_local', JSON.stringify(newFees));
+    } catch (e) {
+      console.error("Error guardando en localStorage:", e);
+    }
 
     if (sheetService.isValidConfig()) {
       setIsSyncing(true);
@@ -70,13 +73,17 @@ const App: React.FC = () => {
   const fetchCloudData = async () => {
     if (!sheetService.isValidConfig()) return;
     setIsSyncing(true);
-    const cloudData = await sheetService.fetchAll();
-    if (cloudData && !cloudData.error) {
-      if (cloudData.users) setUsers(cloudData.users);
-      if (cloudData.representatives) setRepresentatives(cloudData.representatives);
-      if (cloudData.payments) setPayments(cloudData.payments);
-      if (cloudData.fees) setFees(cloudData.fees);
-      setCloudStatus('online');
+    try {
+      const cloudData = await sheetService.fetchAll();
+      if (cloudData && !cloudData.error) {
+        if (cloudData.users) setUsers(cloudData.users);
+        if (cloudData.representatives) setRepresentatives(cloudData.representatives);
+        if (cloudData.payments) setPayments(cloudData.payments);
+        if (cloudData.fees) setFees(cloudData.fees);
+        setCloudStatus('online');
+      }
+    } catch (e) {
+      setCloudStatus('offline');
     }
     setIsSyncing(false);
   };
@@ -90,10 +97,19 @@ const App: React.FC = () => {
         const savedUsers = localStorage.getItem('school_users_local');
         const savedFees = localStorage.getItem('school_fees_local');
 
-        const localUsers = savedUsers ? JSON.parse(savedUsers) : initialUsers;
-        const localReps = savedReps ? JSON.parse(savedReps) : initialRepresentatives;
-        const localPays = savedPays ? JSON.parse(savedPays) : initialPayments;
-        const localFees = savedFees ? JSON.parse(savedFees) : DEFAULT_LEVEL_FEES;
+        let localUsers = initialUsers;
+        let localReps = initialRepresentatives;
+        let localPays = initialPayments;
+        let localFees = DEFAULT_LEVEL_FEES;
+
+        try {
+          if (savedUsers) localUsers = JSON.parse(savedUsers);
+          if (savedReps) localReps = JSON.parse(savedReps);
+          if (savedPays) localPays = JSON.parse(savedPays);
+          if (savedFees) localFees = JSON.parse(savedFees);
+        } catch (e) {
+          console.warn("Error parseando localStorage, usando datos iniciales.");
+        }
 
         setUsers(localUsers);
         setRepresentatives(localReps);
@@ -102,13 +118,17 @@ const App: React.FC = () => {
 
         const savedSession = localStorage.getItem('school_session');
         if (savedSession) {
-          const parsed = JSON.parse(savedSession);
-          const foundUser = localUsers.find((u: User) => u.cedula === parsed.cedula);
-          if (foundUser) {
-            setCurrentUser(foundUser);
-          } else {
-            const foundRep = localReps.find((r: Representative) => r.cedula === parsed.cedula);
-            if (foundRep) setCurrentRep(foundRep);
+          try {
+            const parsed = JSON.parse(savedSession);
+            const foundUser = localUsers.find((u: User) => u.cedula === parsed.cedula);
+            if (foundUser) {
+              setCurrentUser(foundUser);
+            } else {
+              const foundRep = localReps.find((r: Representative) => r.cedula === parsed.cedula);
+              if (foundRep) setCurrentRep(foundRep);
+            }
+          } catch (e) {
+            localStorage.removeItem('school_session');
           }
         }
 
@@ -123,7 +143,7 @@ const App: React.FC = () => {
           }
         }
       } catch (err) {
-        console.error("Error al cargar datos:", err);
+        console.error("Error crítico durante la carga de datos:", err);
       } finally {
         setIsLoading(false);
       }
@@ -160,6 +180,7 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center text-white">
         <img src={INSTITUTION_LOGO} alt="Logo" className="w-24 h-24 mb-6 animate-pulse" />
         <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="mt-4 text-xs font-black uppercase tracking-widest opacity-50">Cargando Sistema...</p>
       </div>
     );
   }
@@ -188,7 +209,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-[#f1f5f9]">
-      <aside className="w-full md:w-72 bg-[#0f172a] text-white flex flex-col shadow-xl">
+      <aside className="w-full md:w-72 bg-[#0f172a] text-white flex flex-col shadow-xl z-20">
         <div className="p-8 flex items-center gap-4 border-b border-slate-800">
           <img src={INSTITUTION_LOGO} alt="Logo" className="w-10 h-10 object-contain bg-white rounded-lg p-1" />
           <div>
