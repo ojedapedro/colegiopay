@@ -16,7 +16,7 @@ import { ChevronDown, ChevronUp, ShieldCheck, LayoutGrid, ClipboardList, Wallet,
 import { initialRepresentatives, initialPayments, initialUsers } from './services/mockData';
 import { sheetService } from './services/googleSheets';
 
-// UI Components - Sin extensiones para permitir la resolución por parte del bundler
+// UI Components - No extensions for local TSX files in a typical build environment
 import Dashboard from './components/Dashboard';
 import StudentRegistration from './components/StudentRegistration';
 import PaymentModule from './components/PaymentModule';
@@ -189,98 +189,83 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-[#f1f5f9]">
-      <aside className="w-full md:w-72 bg-[#0f172a] text-white flex flex-col shadow-2xl z-20">
-        <div className="p-8 border-b border-slate-800">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center p-1.5 shadow-xl">
-              <img src={INSTITUTION_LOGO} alt="Logo" className="w-full h-full object-contain" />
-            </div>
-            <div>
-              <h1 className="text-lg font-black tracking-tighter uppercase leading-none">Colegio<span className="text-blue-500">Pay</span></h1>
-              <span className={`text-[9px] font-black uppercase tracking-widest ${cloudStatus === 'online' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {cloudStatus === 'online' ? 'Online' : 'Offline'}
-              </span>
-            </div>
+      <aside className="w-full md:w-72 bg-[#0f172a] text-white flex flex-col shadow-xl">
+        <div className="p-8 flex items-center gap-4 border-b border-slate-800">
+          <img src={INSTITUTION_LOGO} alt="Logo" className="w-10 h-10 object-contain bg-white rounded-lg p-1" />
+          <div>
+            <h1 className="text-xl font-black uppercase tracking-tighter">Colegio<span className="text-blue-500">Pay</span></h1>
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Admin V2.1</p>
           </div>
         </div>
-        
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          <NavItem active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<LayoutGrid size={20} />} label="Panel de Control" />
-          <NavItem active={activeTab === 'payments'} onClick={() => setActiveTab('payments')} icon={<Wallet size={20} />} label="Caja y Cobros" />
-          <NavItem active={activeTab === 'ledger'} onClick={() => setActiveTab('ledger')} icon={<ClipboardList size={20} />} label="Cuentas por Cobrar" />
-          <NavItem active={activeTab === 'verification'} onClick={() => setActiveTab('verification')} icon={<ShieldCheck size={20} />} label="Verificación" />
-          <NavItem active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} icon={<FileBarChart size={20} />} label="Reportes" />
 
+        <nav className="flex-1 p-6 space-y-2 overflow-y-auto">
+          <NavItem active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<LayoutGrid size={20} />} label="Panel Control" />
+          <NavItem active={activeTab === 'students'} onClick={() => setActiveTab('students')} icon={<UserPlus size={20} />} label="Matriculación" />
+          <NavItem active={activeTab === 'payments'} onClick={() => setActiveTab('payments')} icon={<Wallet size={20} />} label="Caja y Cobros" />
+          <NavItem active={activeTab === 'verification'} onClick={() => setActiveTab('verification')} icon={<ShieldCheck size={20} />} label="Verificación" badge={payments.filter(p => p.status === PaymentStatus.PENDIENTE).length} />
+          <NavItem active={activeTab === 'ledger'} onClick={() => setActiveTab('ledger')} icon={<ClipboardList size={20} />} label="Libro Maestro" />
+          <NavItem active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} icon={<FileBarChart size={20} />} label="Reportes" />
+          
           {currentUser.role === UserRole.ADMIN && (
-            <>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-4 mb-1 mt-4">Administración</p>
-              <div className="space-y-1">
-                <button
-                  onClick={() => setIsAdminOpen(!isAdminOpen)}
-                  className={`flex items-center justify-between w-full p-4 rounded-xl transition-all font-bold text-sm ${isAdminOpen ? 'bg-slate-800 text-blue-400' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Settings size={20} />
-                    <span>Configuración</span>
-                  </div>
-                  {isAdminOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
-                {isAdminOpen && (
-                  <div className="pl-4 space-y-1 mt-1">
-                    <NavItem active={activeTab === 'students'} onClick={() => setActiveTab('students')} icon={<UserPlus size={18} />} label="Matrícula" />
-                    <NavItem active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={<Users size={18} />} label="Personal" />
-                    <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<Settings size={18} />} label="Parámetros" />
-                  </div>
-                )}
-              </div>
-            </>
+            <div className="pt-6 mt-6 border-t border-slate-800 space-y-2">
+              <p className="px-4 text-[10px] font-black text-slate-600 uppercase tracking-widest mb-4">Administración</p>
+              <NavItem active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={<Users size={20} />} label="Personal" />
+              <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<Settings size={20} />} label="Parámetros" />
+            </div>
           )}
         </nav>
 
-        <div className="p-6 bg-[#020617] border-t border-slate-800">
+        <div className="p-6 bg-slate-900/50 border-t border-slate-800">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-white uppercase">
-              {currentUser.fullName.charAt(0)}
+            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-black">
+              {currentUser.fullName[0]}
             </div>
-            <div>
-              <p className="text-sm font-bold truncate text-slate-200">{currentUser.fullName}</p>
-              <p className="text-[10px] text-blue-500 font-bold uppercase tracking-wider">{currentUser.role}</p>
+            <div className="flex-1 overflow-hidden">
+              <p className="text-xs font-black truncate">{currentUser.fullName}</p>
+              <p className="text-[10px] text-slate-500 font-bold uppercase truncate">{currentUser.role}</p>
             </div>
           </div>
-          <button onClick={handleLogout} className="flex items-center gap-3 w-full p-3 text-slate-500 hover:text-rose-400 hover:bg-rose-900/20 rounded-xl transition-all font-bold text-xs uppercase">
-            {ICONS.Exit} <span>Cerrar Sesión</span>
+          <button onClick={handleLogout} className="w-full p-3 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white rounded-xl transition-all flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest">
+            <RefreshCcw size={16} /> Cerrar Sesión
           </button>
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto max-h-screen p-8">
-        <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <main className="flex-1 p-6 md:p-10 overflow-y-auto max-h-screen">
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
           <div>
-            <h2 className="text-3xl font-black text-slate-800 tracking-tight capitalize">
-              {activeTab === 'ledger' ? 'Cuentas por Cobrar' : 
-               activeTab === 'students' ? 'Registro Escolar' : 
-               activeTab === 'dashboard' ? 'Panel Informativo' : 
-               activeTab === 'verification' ? 'Verificación de Pagos' : 
-               activeTab === 'users' ? 'Control de Personal' :
-               activeTab === 'settings' ? 'Ajustes del Sistema' : activeTab}
+            <h2 className="text-3xl font-black text-slate-800 tracking-tighter uppercase">
+              {activeTab === 'dashboard' && "Estadísticas Generales"}
+              {activeTab === 'students' && "Registro de Alumnos"}
+              {activeTab === 'payments' && "Módulo de Recaudación"}
+              {activeTab === 'verification' && "Validación de Pagos"}
+              {activeTab === 'reports' && "Centro de Reportes"}
+              {activeTab === 'users' && "Control de Personal"}
+              {activeTab === 'settings' && "Configuración Sistema"}
+              {activeTab === 'ledger' && "Estados de Cuenta"}
             </h2>
+            <p className="text-sm text-slate-500 font-medium">Gestión administrativa Colegio San Francisco</p>
           </div>
+
           <div className="flex items-center gap-3">
-             {isSyncing && <span className="text-[10px] font-black text-blue-600 animate-pulse tracking-widest">SINCRONIZANDO...</span>}
-             <button onClick={fetchCloudData} className="p-3 bg-white border border-slate-200 rounded-2xl shadow-sm text-slate-400 hover:text-blue-600 transition-all">
-                <RefreshCcw size={20} />
+             <div className={`flex items-center gap-2 px-4 py-2 rounded-full border text-[10px] font-black uppercase tracking-widest ${cloudStatus === 'online' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+                <div className={`w-2 h-2 rounded-full ${cloudStatus === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></div>
+                {isSyncing ? 'Sincronizando...' : `Cloud: ${cloudStatus}`}
+             </div>
+             <button onClick={fetchCloudData} className="p-2 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-blue-500 transition-colors">
+               <RefreshCcw size={18} className={isSyncing ? 'animate-spin' : ''} />
              </button>
           </div>
         </header>
 
-        <div className="max-w-7xl mx-auto space-y-10">
+        <div className="animate-fadeIn">
           {activeTab === 'dashboard' && <Dashboard representatives={representatives} payments={payments} />}
-          {activeTab === 'students' && <StudentRegistration onRegister={(r) => updateData(users, [...representatives, r], payments, fees)} representatives={representatives} fees={fees} />}
-          {activeTab === 'payments' && <PaymentModule onPay={(p) => updateData(users, representatives, [p, ...payments], fees)} representatives={representatives} payments={payments} fees={fees} />}
-          {activeTab === 'ledger' && <LedgerModule representatives={representatives} payments={payments} fees={fees} />}
+          {activeTab === 'students' && <StudentRegistration representatives={representatives} onRegister={(r) => updateData(users, [...representatives, r], payments, fees)} fees={fees} />}
+          {activeTab === 'payments' && <PaymentModule representatives={representatives} payments={payments} fees={fees} onPay={(p) => updateData(users, representatives, [p, ...payments], fees)} />}
           {activeTab === 'verification' && <VerificationList payments={payments} representatives={representatives} fees={fees} onVerify={(id, status) => updateData(users, representatives, payments.map(p => p.id === id ? {...p, status} : p), fees)} onImportExternal={(news) => updateData(users, representatives, [...news, ...payments], fees)} />}
           {activeTab === 'reports' && <ReportsModule payments={payments} representatives={representatives} />}
-          {activeTab === 'users' && <UserManagement users={users} onUpdateRole={(c, r) => updateData(users.map(u => u.cedula === c ? {...u, role: r} : u), representatives, payments, fees)} onDeleteUser={(c) => updateData(users.filter(u => u.cedula !== c), representatives, payments, fees)} />}
+          {activeTab === 'ledger' && <LedgerModule representatives={representatives} payments={payments} fees={fees} />}
+          {activeTab === 'users' && <UserManagement users={users} onUpdateRole={(id, role) => updateData(users.map(u => u.cedula === id ? {...u, role} : u), representatives, payments, fees)} onDeleteUser={(id) => updateData(users.filter(u => u.cedula !== id), representatives, payments, fees)} />}
           {activeTab === 'settings' && <SettingsModule fees={fees} onUpdateFees={(f) => updateData(users, representatives, payments, f)} />}
         </div>
       </main>
@@ -288,14 +273,13 @@ const App: React.FC = () => {
   );
 };
 
-const NavItem: React.FC<{ active: boolean; onClick: () => void; icon: React.ReactNode; label: string }> = ({ active, onClick, icon, label }) => (
-  <button
-    onClick={onClick}
-    className={`flex items-center gap-3 w-full p-4 rounded-xl transition-all font-bold text-sm ${
-      active ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 translate-x-1' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-    }`}
-  >
-    {icon} <span className="tracking-tight uppercase">{label}</span>
+const NavItem = ({ active, onClick, icon, label, badge }: { active: boolean, onClick: () => void, icon: any, label: string, badge?: number }) => (
+  <button onClick={onClick} className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all group ${active ? 'bg-blue-600 text-white shadow-xl shadow-blue-900/40 font-black' : 'text-slate-400 hover:bg-slate-800/50 font-bold'}`}>
+    <div className="flex items-center gap-4">
+      <span className={`${active ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`}>{icon}</span>
+      <span className="text-xs uppercase tracking-widest">{label}</span>
+    </div>
+    {badge ? <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black ${active ? 'bg-white text-blue-600' : 'bg-rose-500 text-white'}`}>{badge}</span> : null}
   </button>
 );
 
