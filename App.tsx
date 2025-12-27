@@ -26,6 +26,7 @@ import Auth from './components/Auth';
 import UserManagement from './components/UserManagement';
 import SettingsModule from './components/SettingsModule';
 import LedgerModule from './components/LedgerModule';
+import RepresentativePortal from './components/RepresentativePortal';
 
 const INSTITUTION_LOGO = "https://i.ibb.co/FbHJbvVT/images.png";
 
@@ -34,6 +35,7 @@ const App: React.FC = () => {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentRep, setCurrentRep] = useState<Representative | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [representatives, setRepresentatives] = useState<Representative[]>([]);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
@@ -41,7 +43,6 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [cloudStatus, setCloudStatus] = useState<'online' | 'offline' | 'pending'>('pending');
-  const [accrualNotice, setAccrualNotice] = useState<string | null>(null);
 
   const updateData = useCallback(async (newUsers: User[], newReps: Representative[], newPays: PaymentRecord[], newFees: LevelFees) => {
     setUsers(newUsers);
@@ -65,32 +66,6 @@ const App: React.FC = () => {
       setCloudStatus(success ? 'online' : 'offline');
       setIsSyncing(false);
     }
-  }, []);
-
-  const applyMonthlyAccrual = useCallback((currentReps: Representative[], currentFees: LevelFees) => {
-    const now = new Date();
-    const currentMonthKey = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
-    
-    let updated = false;
-    const newReps = currentReps.map(rep => {
-      if (rep.lastAccrualMonth !== currentMonthKey) {
-        const monthlyTotal = rep.students.reduce((sum, student) => sum + (currentFees[student.level] || 0), 0);
-        updated = true;
-        return {
-          ...rep,
-          totalAccruedDebt: (rep.totalAccruedDebt || 0) + monthlyTotal,
-          lastAccrualMonth: currentMonthKey
-        };
-      }
-      return rep;
-    });
-
-    if (updated) {
-      setAccrualNotice(`Se han cargado las mensualidades correspondientes a ${currentMonthKey}`);
-      setTimeout(() => setAccrualNotice(null), 10000);
-      return newReps;
-    }
-    return null;
   }, []);
 
   const fetchCloudData = async () => {
@@ -120,11 +95,8 @@ const App: React.FC = () => {
       const localPays = savedPays ? JSON.parse(savedPays) : initialPayments;
       const localFees = savedFees ? JSON.parse(savedFees) : DEFAULT_LEVEL_FEES;
 
-      const accruedReps = applyMonthlyAccrual(localReps, localFees);
-      const finalReps = accruedReps || localReps;
-      
       setUsers(localUsers);
-      setRepresentatives(finalReps);
+      setRepresentatives(localReps);
       setPayments(localPays);
       setFees(localFees);
 
@@ -132,11 +104,12 @@ const App: React.FC = () => {
       if (savedSession) {
         const parsed = JSON.parse(savedSession);
         const foundUser = localUsers.find((u: User) => u.cedula === parsed.cedula);
-        if (foundUser) setCurrentUser(foundUser);
-      }
-
-      if (accruedReps) {
-        updateData(localUsers, finalReps, localPays, localFees);
+        if (foundUser) {
+          setCurrentUser(foundUser);
+        } else {
+          const foundRep = localReps.find((r: Representative) => r.cedula === parsed.cedula);
+          if (foundRep) setCurrentRep(foundRep);
+        }
       }
 
       if (sheetService.isValidConfig()) {
@@ -152,12 +125,30 @@ const App: React.FC = () => {
       setIsLoading(false);
     };
     loadData();
-  }, [applyMonthlyAccrual]);
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('school_session');
     setCurrentUser(null);
+    setCurrentRep(null);
     setActiveTab('dashboard');
+  };
+
+  const handleLogin = (id: string) => {
+    const user = users.find(u => u.cedula === id);
+    if (user) {
+      setCurrentUser(user);
+      localStorage.setItem('school_session', JSON.stringify({ cedula: user.cedula }));
+      return;
+    }
+    
+    const rep = representatives.find(r => r.cedula === id);
+    if (rep) {
+      setCurrentRep(rep);
+      localStorage.setItem('school_session', JSON.stringify({ cedula: rep.cedula }));
+    } else {
+      alert("Identificación no reconocida en el sistema administrativo.");
+    }
   };
 
   if (isLoading) {
@@ -169,10 +160,33 @@ const App: React.FC = () => {
     );
   }
 
-  if (!currentUser) {
-    return <Auth users={users} onLogin={(u) => { setCurrentUser(u); localStorage.setItem('school_session', JSON.stringify({ cedula: u.cedula })); }} onRegister={(u) => updateData([...users, u], representatives, payments, fees)} />;
+  // Si el logueado es un representante, mostrar su portal directamente
+  if (currentRep) {
+    return (
+      <RepresentativePortal 
+        representative={currentRep} 
+        payments={payments.filter(p => p.cedulaRepresentative === currentRep.cedula)}
+        fees={fees}
+        onRegisterPayment={(p) => updateData(users, representatives, [p, ...payments], fees)}
+        onLogout={handleLogout}
+      />
+    );
   }
 
+  if (!currentUser) {
+    return (
+      <Auth 
+        users={users} 
+        onLogin={(u) => { 
+          // El componente Auth ahora solo maneja la lógica visual, la decisión final se toma aquí
+          handleLogin(u.cedula);
+        }} 
+        onRegister={(u) => updateData([...users, u], representatives, payments, fees)} 
+      />
+    );
+  }
+
+  // Interfaz Administrativa (Ya existente)
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-[#f1f5f9]">
       <aside className="w-full md:w-72 bg-[#0f172a] text-white flex flex-col shadow-2xl z-20">
@@ -191,10 +205,7 @@ const App: React.FC = () => {
         </div>
         
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-4 mb-1">General</p>
           <NavItem active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<LayoutGrid size={20} />} label="Panel de Control" />
-          
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-4 mb-1 mt-4">Gestión de Cobros</p>
           <NavItem active={activeTab === 'payments'} onClick={() => setActiveTab('payments')} icon={<Wallet size={20} />} label="Caja y Cobros" />
           <NavItem active={activeTab === 'ledger'} onClick={() => setActiveTab('ledger')} icon={<ClipboardList size={20} />} label="Cuentas por Cobrar" />
           <NavItem active={activeTab === 'verification'} onClick={() => setActiveTab('verification')} icon={<ShieldCheck size={20} />} label="Verificación" />
@@ -215,7 +226,7 @@ const App: React.FC = () => {
                   {isAdminOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                 </button>
                 {isAdminOpen && (
-                  <div className="pl-4 space-y-1 mt-1 animate-slideDown">
+                  <div className="pl-4 space-y-1 mt-1">
                     <NavItem active={activeTab === 'students'} onClick={() => setActiveTab('students')} icon={<UserPlus size={18} />} label="Matrícula" />
                     <NavItem active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={<Users size={18} />} label="Personal" />
                     <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<Settings size={18} />} label="Parámetros" />
@@ -228,7 +239,7 @@ const App: React.FC = () => {
 
         <div className="p-6 bg-[#020617] border-t border-slate-800">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-white">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-white uppercase">
               {currentUser.fullName.charAt(0)}
             </div>
             <div>
@@ -236,20 +247,13 @@ const App: React.FC = () => {
               <p className="text-[10px] text-blue-500 font-bold uppercase tracking-wider">{currentUser.role}</p>
             </div>
           </div>
-          <button onClick={handleLogout} className="flex items-center gap-3 w-full p-3 text-slate-500 hover:text-rose-400 hover:bg-rose-900/20 rounded-xl transition-all font-bold text-xs">
+          <button onClick={handleLogout} className="flex items-center gap-3 w-full p-3 text-slate-500 hover:text-rose-400 hover:bg-rose-900/20 rounded-xl transition-all font-bold text-xs uppercase">
             {ICONS.Exit} <span>Cerrar Sesión</span>
           </button>
         </div>
       </aside>
 
       <main className="flex-1 overflow-y-auto max-h-screen p-8">
-        {accrualNotice && (
-          <div className="mb-6 bg-blue-600 text-white p-4 rounded-2xl shadow-xl flex items-center gap-4 animate-slideDown">
-            <Bell className="animate-bounce" size={20} />
-            <p className="text-sm font-bold">{accrualNotice}</p>
-          </div>
-        )}
-
         <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
             <h2 className="text-3xl font-black text-slate-800 tracking-tight capitalize">
@@ -260,10 +264,9 @@ const App: React.FC = () => {
                activeTab === 'users' ? 'Control de Personal' :
                activeTab === 'settings' ? 'Ajustes del Sistema' : activeTab}
             </h2>
-            <p className="text-xs font-medium text-slate-500 mt-1">Gestión administrativa del Colegio  M. Beltrán Prieto Figueroa</p>
           </div>
           <div className="flex items-center gap-3">
-             {isSyncing && <span className="text-[10px] font-black text-blue-600 animate-pulse tracking-widest">GUARDANDO CAMBIOS...</span>}
+             {isSyncing && <span className="text-[10px] font-black text-blue-600 animate-pulse tracking-widest">SINCRONIZANDO...</span>}
              <button onClick={fetchCloudData} className="p-3 bg-white border border-slate-200 rounded-2xl shadow-sm text-slate-400 hover:text-blue-600 transition-all">
                 <RefreshCcw size={20} />
              </button>
@@ -292,7 +295,7 @@ const NavItem: React.FC<{ active: boolean; onClick: () => void; icon: React.Reac
       active ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 translate-x-1' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
     }`}
   >
-    {icon} <span className="tracking-tight">{label}</span>
+    {icon} <span className="tracking-tight uppercase">{label}</span>
   </button>
 );
 

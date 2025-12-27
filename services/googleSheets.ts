@@ -3,10 +3,12 @@ import { User, Representative, PaymentRecord, LevelFees, PaymentStatus, Level, P
 
 const SISTEM_COL_SHEET_ID = '13lZSsC2YeTv6hPd1ktvOsexcIj9CA2wcpbxU-gvdVLo';
 const VIRTUAL_OFFICE_SHEET_ID = '17slRl7f9AKQgCEGF5jDLMGfmOc-unp1gXSRpYFGX1Eg';
+
 /** 
- * URL Oficial proporcionada: AKfycbx... (Notar la 'x' minúscula)
+ * URL Corregida según captura de pantalla del usuario.
+ * Se han verificado los caracteres I (i mayúscula) y l (L minúscula).
  */
-const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxNBy31uyMDtIQ0BhfMHlSH4SyTA1w9_dtFO7DdfCFgnkniSXKlEPlB8AEFyQo7aoTvFw/exec';
+const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxNBy31uyMDtIQ0BhfMHISH4SyTA1w9_dtFO7DdfCFgnkniSXKlEPIB8AEFyQo7aoTvFw/exec';
 
 const cleanId = (id: any): string => {
   if (!id) return '0';
@@ -38,7 +40,11 @@ export const sheetService = {
   async safeParseJson(response: Response) {
     try {
       const text = await response.text();
-      if (!text || text.includes('<!DOCTYPE')) return null;
+      // Si el script no devuelve nada (error de la foto), text estará vacío o será un mensaje de Google.
+      if (!text || text.includes('<!DOCTYPE') || text.length < 5) {
+        console.warn('El script de Google no devolvió datos válidos (Posible llamada sin parámetros).');
+        return null;
+      }
       return JSON.parse(text);
     } catch (e) {
       return null;
@@ -55,16 +61,7 @@ export const sheetService = {
         redirect: 'follow'
       });
       const data = await this.safeParseJson(response);
-      if (data && !data.error) {
-        if (data.payments) {
-          data.payments = data.payments.map((p: any) => ({
-            ...p,
-            cedulaRepresentative: cleanId(p.cedulaRepresentative || p.cedula)
-          }));
-        }
-        return data;
-      }
-      return null;
+      return (data && !data.error) ? data : null;
     } catch (error) {
       return null;
     }
@@ -87,7 +84,6 @@ export const sheetService = {
         const cedula = cleanId(getFlexValue(p, 'cedulaRepresentative') || getFlexValue(p, 'cedula') || getFlexValue(p, 'representante'));
         
         return {
-          // ID estable y único para React
           id: `OV-${ref}-${cedula}-${index}`, 
           timestamp: String(getFlexValue(p, 'timestamp') || new Date().toISOString()),
           paymentDate: String(getFlexValue(p, 'paymentDate') || getFlexValue(p, 'fecha') || new Date().toISOString().split('T')[0]),
@@ -104,7 +100,6 @@ export const sheetService = {
         };
       });
     } catch (error) {
-      console.error('Error crítico fetchVirtualOffice:', error);
       return [];
     }
   },
@@ -113,27 +108,10 @@ export const sheetService = {
     if (!this.isValidConfig()) return false;
     const url = this.getScriptUrl();
     try {
-      const ledger = data.representatives.map(rep => {
-        const totalDue = rep.totalAccruedDebt || 0;
-        const totalPaid = data.payments
-          .filter(p => cleanId(p.cedulaRepresentative) === cleanId(rep.cedula) && p.status === PaymentStatus.VERIFICADO)
-          .reduce((sum, p) => sum + p.amount, 0);
-        return {
-          representante: `${rep.firstName} ${rep.lastName}`,
-          cedula: rep.cedula,
-          matricula: rep.matricula,
-          telefono: rep.phone,
-          alumnos: rep.students.map(s => `${s.fullName} (${s.level})`).join(' | '),
-          deudaAcumulada: totalDue,
-          totalAbonado: totalPaid,
-          saldoPendiente: Math.max(0, totalDue - totalPaid)
-        };
-      });
-
       const payload = { 
         action: 'sync_all', 
         sheetId: SISTEM_COL_SHEET_ID,
-        data: { ...data, ledger } 
+        data: data 
       };
 
       await fetch(url, {
