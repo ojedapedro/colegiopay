@@ -2,19 +2,19 @@
 import { User, Representative, PaymentRecord, LevelFees, PaymentStatus, Level, PaymentMethod } from '../types';
 
 /**
- * ID de la Base de Datos Principal (SistemCol) - Visto en URL de Imagen 3
+ * ID de la Base de Datos Principal (SistemCol)
  */
 const SISTEM_COL_SHEET_ID = '13lZSsC2YeTv6hPd1ktvOsexcIj9CA2wcpbxU-gvdVLo';
 
 /**
- * ID de la Oficina Virtual - Visto en URL de Imagen 1
+ * ID de la Oficina Virtual (Hojas de Pagos y Usuarios externos)
  */
 const VIRTUAL_OFFICE_SHEET_ID = '17slRl7f9AKQgCEGF5jDLMGfmOc-unp1gXSRpYFGX1Eg';
 
 /**
- * URL de implementación del Apps Script (Debe terminar en /exec)
+ * URL de implementación definitiva proporcionada por el usuario
  */
-const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxBBsRqQ9nZykVioVqgQ_I3wmCYz3gncOM1rxZbFfgEPF-ijLp0Qp63fAKjsNxcytPNIQ/exec';
+const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbnBy31uyMDtIQ0BhfMHlSH4SyTA1w9_dtFO7DdfCFgnkniSXKlEPlB8AEFyQo7aoTvFw/exec';
 
 const cleanId = (id: any): string => {
   if (!id) return '0';
@@ -24,8 +24,7 @@ const cleanId = (id: any): string => {
 export const sheetService = {
   getScriptUrl() {
     const saved = localStorage.getItem('school_script_url');
-    const url = (saved && saved.trim() !== '') ? saved.trim() : DEFAULT_SCRIPT_URL;
-    return url;
+    return (saved && saved.trim() !== '') ? saved.trim() : DEFAULT_SCRIPT_URL;
   },
 
   setScriptUrl(url: string) {
@@ -34,36 +33,35 @@ export const sheetService = {
 
   isValidConfig() {
     const url = this.getScriptUrl();
-    return url && url.startsWith('https://script.google.com/macros/s/') && url.endsWith('/exec');
+    return url && url.includes('/macros/s/') && url.includes('/exec');
   },
 
   /**
-   * Intenta parsear la respuesta del servidor de forma segura.
-   * Si devuelve HTML (página de login de Google), lanza error descriptivo.
+   * Intenta parsear JSON de forma segura manejando errores de CORS/Redirección
    */
   async safeParseJson(response: Response) {
     try {
       const text = await response.text();
       if (!text) return null;
       if (text.trim().toLowerCase().startsWith('<!doctype')) {
-        throw new Error('El script no está configurado como "Cualquiera" (Anyone). Google devolvió una página de acceso.');
+        console.error('El servidor de Google requiere autenticación manual o el script no es público.');
+        return null;
       }
       return JSON.parse(text);
-    } catch (e: any) {
-      console.error('Error al procesar respuesta del servidor:', e.message);
+    } catch (e) {
+      console.error('Error parseando respuesta de Google Sheets:', e);
       return null;
     }
   },
 
   /**
-   * Lee la base de datos principal SistemCol
+   * Lee la base de datos principal SistemCol (Maestro)
    */
   async fetchAll() {
     if (!this.isValidConfig()) return null;
     const url = this.getScriptUrl();
 
     try {
-      // Usamos GET con parámetros para evitar problemas de CORS preflight
       const fetchUrl = `${url}?action=read_all&sheetId=${SISTEM_COL_SHEET_ID}&t=${Date.now()}`;
       const response = await fetch(fetchUrl, {
         method: 'GET',
@@ -74,7 +72,6 @@ export const sheetService = {
       
       const data = await this.safeParseJson(response);
       if (data && !data.error) {
-        // Normalización de datos para asegurar compatibilidad
         if (data.payments) {
           data.payments = data.payments.map((p: any) => ({
             ...p,
@@ -91,14 +88,14 @@ export const sheetService = {
       }
       return null;
     } catch (error) {
-      console.warn('Fallo de red en SistemCol (fetchAll). Probablemente CORS o URL incorrecta.');
+      console.error('Error crítico conectando a SistemCol:', error);
       return null;
     }
   },
 
   /**
-   * Lee los pagos reportados desde la Oficina Virtual (ID: 17slRl...)
-   * Mapeo exacto según Imagen 2 de la hoja "Pagos"
+   * Importa los pagos desde la Oficina Virtual (ID: 17slRl...)
+   * Estructura basada exactamente en la Imagen 2
    */
   async fetchVirtualOfficePayments() {
     if (!this.isValidConfig()) return [];
@@ -120,8 +117,8 @@ export const sheetService = {
       
       return rawPayments.map((p: any) => ({
         id: String(p.id || `OV-${Date.now()}`),
-        timestamp: String(p.timestamp || new Date().toISOString()),
-        paymentDate: String(p.paymentDate || new Date().toISOString().split('T')[0]),
+        timestamp: String(p.timestamp || ''),
+        paymentDate: String(p.paymentDate || ''),
         cedulaRepresentative: cleanId(p.cedulaRepresentative),
         matricula: String(p.matricula || 'N/A'),
         level: (p.level || Level.PRIMARIA) as Level,
@@ -134,21 +131,20 @@ export const sheetService = {
         pendingBalance: parseFloat(String(p.pendingBalance).replace(',', '.')) || 0
       }));
     } catch (error) {
-      console.warn('Fallo de red en Oficina Virtual. Verifique permisos del script.');
+      console.error('Error importando desde Oficina Virtual:', error);
       return [];
     }
   },
 
   /**
-   * Sincroniza todos los datos y genera la hoja "CuentasPorCobrar"
-   * Formato exacto según Imagen 3
+   * Sincroniza al Libro Maestro y genera CuentasPorCobrar
+   * Formato exacto Imagen 3
    */
   async syncAll(data: { users: User[], representatives: Representative[], payments: PaymentRecord[], fees: LevelFees }) {
     if (!this.isValidConfig()) return false;
     const url = this.getScriptUrl();
 
     try {
-      // Generamos el libro de cuentas por cobrar exactamente como en la imagen 3
       const ledger = data.representatives.map(rep => {
         const totalDue = rep.totalAccruedDebt || 0;
         const totalPaid = data.payments
@@ -175,11 +171,11 @@ export const sheetService = {
           representatives: data.representatives,
           payments: data.payments,
           fees: data.fees,
-          ledger // Esto actualizará la hoja "CuentasPorCobrar"
+          ledger // Actualiza hoja CuentasPorCobrar
         } 
       };
 
-      // Usar mode: 'no-cors' para el POST asegura que los datos se envíen sin disparar errores de seguridad complejos
+      // no-cors evita el preflight pero no permite leer la respuesta (seguro para guardado ciego)
       await fetch(url, {
         method: 'POST',
         mode: 'no-cors',
@@ -189,7 +185,7 @@ export const sheetService = {
       
       return true;
     } catch (error) {
-      console.error('Error en sincronización (syncAll):', error);
+      console.error('Fallo en sincronización maestra:', error);
       return false;
     }
   }

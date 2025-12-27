@@ -20,37 +20,35 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
   };
 
   const handleRestoreDefault = () => {
-    const defaultUrl = 'https://script.google.com/macros/s/AKfycbxBBsRqQ9nZykVioVqgQ_I3wmCYz3gncOM1rxZbFfgEPF-ijLp0Qp63fAKjsNxcytPNIQ/exec';
+    const defaultUrl = 'https://script.google.com/macros/s/AKfycbxNBy31uyMDtIQ0BhfMHlSH4SyTA1w9_dtFO7DdfCFgnkniSXKlEPlB8AEFyQo7aoTvFw/exec';
     setScriptUrl(defaultUrl);
     sheetService.setScriptUrl(defaultUrl);
     setSaveStatus('saved');
-    alert('✅ URL OFICIAL RESTAURADA.');
   };
 
   const handleSaveUrl = async () => {
     const cleanUrl = scriptUrl.trim();
-    if (!cleanUrl.startsWith('https://script.google.com/macros/s/') || !cleanUrl.endsWith('/exec')) {
+    if (!cleanUrl.includes('/exec')) {
       setSaveStatus('error');
-      alert('¡URL INVÁLIDA!\n\nDebe ser una URL de implementación de Google Apps Script finalizada en /exec.');
+      alert('URL NO VALIDA. Debe ser una URL de Apps Script terminada en /exec');
       return;
     }
 
     setSaveStatus('testing');
     sheetService.setScriptUrl(cleanUrl);
     
-    // Verificación rápida de conectividad
     try {
-      const test = await sheetService.fetchAll();
-      if (test) {
+      const data = await sheetService.fetchAll();
+      if (data) {
         setSaveStatus('saved');
-        alert('✅ CONEXIÓN EXITOSA.\n\nEl sistema ha vinculado las hojas SistemCol y Oficina Virtual correctamente.');
+        alert('CONEXION EXITOSA. Datos vinculados con SistemCol y Oficina Virtual.');
       } else {
         setSaveStatus('error');
-        alert('❌ ERROR DE ACCESO.\n\nLa URL es válida pero el script no devolvió datos. Asegúrese de que el script esté publicado como "Anyone" (Cualquiera) y que el ID de la hoja sea correcto.');
+        alert('ERROR DE PERMISOS. El script no devolvio datos. Revise si esta publicado como Anyone (Cualquiera).');
       }
     } catch (e) {
       setSaveStatus('error');
-      alert('❌ ERROR DE RED.\n\n"Failed to fetch". El navegador bloqueó la conexión. Revise los permisos de CORS en su Apps Script.');
+      alert('FALLO DE RED. El servidor de Google no responde. Revise su conexion.');
     }
   };
 
@@ -63,35 +61,34 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
               <Link size={24} />
             </div>
             <div>
-              <h3 className="text-xl font-black uppercase tracking-tight">Conectividad de Datos</h3>
-              <p className="text-sm text-slate-400 font-medium">Motor de Sincronización Google Cloud</p>
+              <h3 className="text-xl font-black uppercase tracking-tight">Parametros de Enlace</h3>
+              <p className="text-sm text-slate-400 font-medium">Sincronizacion en Tiempo Real (PNIQ Engine)</p>
             </div>
           </div>
           <div className="flex items-center gap-2 bg-emerald-500/10 text-emerald-400 px-4 py-2 rounded-xl border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest">
             <ShieldCheck size={14} />
-            Estado: {sheetService.isValidConfig() ? 'Vinculado' : 'Sin Configurar'}
+            Cloud: {sheetService.isValidConfig() ? 'Vinculado' : 'Desconectado'}
           </div>
         </div>
         
         <div className="p-10 space-y-8">
-          {/* Instrucciones críticas para evitar el error Failed to Fetch */}
           <div className="p-6 bg-amber-50 border border-amber-100 rounded-3xl flex gap-4">
             <div className="text-amber-500 mt-1"><AlertCircle size={24} /></div>
             <div className="space-y-2">
-              <h4 className="text-xs font-black text-amber-800 uppercase tracking-tighter">¿Problemas con &quot;Failed to Fetch&quot;?</h4>
+              <h4 className="text-xs font-black text-amber-800 uppercase tracking-tighter">Guia de Publicacion (Evitar Fallos)</h4>
               <p className="text-[11px] text-amber-700 leading-relaxed font-medium">
-                Si ve este error, el problema está en los permisos del Google Apps Script. Siga estos pasos:<br/>
-                <strong>1. En Apps Script: Implementar &gt; Gestionar implementaciones.</strong><br/>
-                <strong>2. Edite la implementación actual (o cree una nueva de tipo &quot;Aplicación Web&quot;).</strong><br/>
-                <strong>3. Ejecutar como: &quot;Yo&quot;.</strong><br/>
-                <strong>4. Quién tiene acceso: &quot;Cualquiera&quot; (Anyone) - ¡ESTO ES VITAL!.</strong>
+                Si ve el error de red, verifique la publicacion del Apps Script:<br/>
+                1. Ir a Implementar - Nueva implementacion.<br/>
+                2. Tipo: Aplicacion Web.<br/>
+                3. Ejecutar como: YO.<br/>
+                4. Quien tiene acceso: CUALQUIERA (Anyone).
               </p>
             </div>
           </div>
 
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">URL del Puente de Datos (Apps Script)</label>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">URL de Apps Script (Puente ColegioPay)</label>
               <button 
                 onClick={handleRestoreDefault}
                 className="text-[9px] font-black text-blue-600 uppercase hover:underline flex items-center gap-1"
@@ -118,17 +115,17 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
                   className="p-5 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 uppercase tracking-widest text-xs flex items-center justify-center gap-3"
                 >
                   {saveStatus === 'testing' ? <RefreshCcw className="animate-spin" size={16} /> : null}
-                  {saveStatus === 'testing' ? 'Comprobando Conexión...' : 'Guardar y Vincular Datos'}
+                  {saveStatus === 'testing' ? 'Vinculando...' : 'Guardar y Sincronizar'}
                 </button>
                 
                 <a 
-                  href="https://docs.google.com/spreadsheets/d/13lZSsC2YeTv6hPd1ktvOsexcIj9CA2wcpbxU-gvdVLo/edit" 
+                  href="https://docs.google.com/spreadsheets/d/17slRl7f9AKQgCEGF5jDLMGfmOc-unp1gXSRpYFGX1Eg/edit" 
                   target="_blank" 
                   rel="noreferrer"
                   className="p-5 bg-slate-100 text-slate-600 font-black rounded-2xl hover:bg-slate-200 transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-3"
                 >
                   <ICONS.Search.type {...ICONS.Search.props} size={16} />
-                  Abrir SistemCol Maestro
+                  Ver Oficina Virtual (17slRl...)
                 </a>
               </div>
             </div>
@@ -143,8 +140,8 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
               <ICONS.Payments.type {...ICONS.Payments.props} size={20} />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-800">Tabla de Aranceles</h3>
-              <p className="text-sm text-slate-500 font-medium">Montos base para mensualidades automáticas</p>
+              <h3 className="text-lg font-bold text-slate-800">Escala de Aranceles</h3>
+              <p className="text-sm text-slate-500 font-medium">Montos base por nivel educativo</p>
             </div>
           </div>
         </div>
