@@ -1,13 +1,14 @@
+
 import { User, Representative, PaymentRecord, LevelFees, PaymentStatus, Level, PaymentMethod } from '../types';
 
-// ID de la Hoja de Cálculo SistemCol (ColegioPay)
-const COLEGIO_PAY_SHEET_ID = '13lZSsC2YeTv6hPd1ktvOsexcIj9CA2wcpbxU-gvdVLo';
+// ID Único de la Base de Datos SistemCol (ColegioPay)
+const SISTEM_COL_SHEET_ID = '13lZSsC2YeTv6hPd1ktvOsexcIj9CA2wcpbxU-gvdVLo';
 
 // URL del Apps Script (Motor de datos)
 const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxv497Vl2JiZMx4clinJ-BXmEEHRnZaxfho3-ZRTVp1gtmbk69ncbAHsxxCsPz03vOcyg/exec';
 
 /**
- * Utilidad para normalizar cédulas: elimina prefijos (V-, E-), puntos y espacios.
+ * Normaliza la cédula eliminando prefijos "V-", "E-", puntos y espacios
  */
 const cleanId = (id: any): string => {
   if (!id) return '0';
@@ -36,53 +37,57 @@ export const sheetService = {
     try {
       return JSON.parse(text);
     } catch (e) {
-      console.warn('Respuesta no JSON recibida:', text);
+      console.warn('Respuesta no válida:', text);
       return null;
     }
   },
 
+  /**
+   * Lee todos los datos maestros de SistemCol
+   */
   async fetchAll() {
     const url = this.getScriptUrl();
     if (!this.isValidConfig()) return null;
 
     try {
-      const response = await fetch(`${url}?action=read_all&sheetId=${COLEGIO_PAY_SHEET_ID}`, {
+      const response = await fetch(`${url}?action=read_all&sheetId=${SISTEM_COL_SHEET_ID}`, {
         method: 'GET',
         cache: 'no-store'
       });
       
       const data = await this.safeParseJson(response);
       
-      if (data && data.payments) {
-        data.payments = data.payments.map((p: any) => ({
-          ...p,
-          cedulaRepresentative: cleanId(p.cedulaRepresen || p.cedulaRepresentative || p.cedula)
-        }));
+      if (data) {
+        if (data.payments) {
+          data.payments = data.payments.map((p: any) => ({
+            ...p,
+            cedulaRepresentative: cleanId(p.cedulaRepresen || p.cedulaRepresentative || p.cedula)
+          }));
+        }
+        if (data.representatives) {
+          data.representatives = data.representatives.map((r: any) => ({
+            ...r,
+            cedula: cleanId(r.cedula)
+          }));
+        }
       }
-
-      if (data && data.representatives) {
-        data.representatives = data.representatives.map((r: any) => ({
-          ...r,
-          cedula: cleanId(r.cedula)
-        }));
-      }
-
       return data;
     } catch (error) {
-      console.error('Error al leer ColegioPay:', error);
+      console.error('Error al leer SistemCol:', error);
       return null;
     }
   },
 
   /**
-   * Obtiene datos de la pestaña 'OficinaVirtual' dentro de SistemCol
+   * Lee específicamente la pestaña OficinaVirtual dentro de SistemCol
    */
   async fetchVirtualOfficePayments() {
     const url = this.getScriptUrl();
     if (!this.isValidConfig()) return [];
 
     try {
-      const targetUrl = `${url}?action=get_external_payments&sheetId=${COLEGIO_PAY_SHEET_ID}&sheetName=OficinaVirtual&t=${Date.now()}`;
+      // Petición apuntando a la pestaña 'OficinaVirtual' en el mismo archivo
+      const targetUrl = `${url}?action=get_external_payments&sheetId=${SISTEM_COL_SHEET_ID}&sheetName=OficinaVirtual&t=${Date.now()}`;
       
       const response = await fetch(targetUrl, {
         method: 'GET',
@@ -95,14 +100,18 @@ export const sheetService = {
       const rawPayments = Array.isArray(result) ? result : (result.payments || result.data || []);
       
       return rawPayments.map((p: any) => {
-        // Mapeo basado en la estructura de la imagen de Google Sheets
+        // Mapeo basado en la fotografía de Google Sheets:
+        // Col D: "Cedula Represe"
+        // Col G: "Tipo Pago"
+        // Col H: "Modo Pago"
+        // Col J: "Monto"
         const cleanedCedula = cleanId(p["Cedula Represe"] || p["Cedula Representante"] || p.cedula);
         const rawMonto = p["Monto"] || p["Amount"] || 0;
         const amount = typeof rawMonto === 'string' ? parseFloat(rawMonto.replace(',', '.')) : parseFloat(rawMonto);
         const ref = String(p["Referencia"] || p.reference || '000000');
         
         return {
-          id: `WEB-${ref}-${cleanedCedula}-${Date.now()}`,
+          id: `OV-${ref}-${cleanedCedula}-${Date.now()}`,
           timestamp: String(p["Timestamp"] || new Date().toISOString()),
           paymentDate: String(p["Fecha Pago"] || p["Fecha Registro"] || new Date().toISOString().split('T')[0]),
           cedulaRepresentative: cleanedCedula,
@@ -118,11 +127,14 @@ export const sheetService = {
         };
       });
     } catch (error) {
-      console.error('Error leyendo OficinaVirtual:', error);
+      console.error('Error leyendo pestaña OficinaVirtual:', error);
       return [];
     }
   },
 
+  /**
+   * Sincroniza todos los datos de vuelta a SistemCol
+   */
   async syncAll(data: { users: User[], representatives: Representative[], payments: PaymentRecord[], fees: LevelFees }) {
     const url = this.getScriptUrl();
     if (!this.isValidConfig()) return false;
@@ -134,6 +146,7 @@ export const sheetService = {
         cedulaRepresentative: cleanId(p.cedulaRepresentative)
       }));
 
+      // Preparamos el resumen para la hoja 'CuentasPorCobrar'
       const ledger = cleanedReps.map(rep => {
         const totalDue = rep.totalAccruedDebt || 0;
         const totalPaid = cleanedPays
@@ -154,7 +167,7 @@ export const sheetService = {
 
       const payload = { 
         action: 'sync_all', 
-        sheetId: COLEGIO_PAY_SHEET_ID,
+        sheetId: SISTEM_COL_SHEET_ID,
         data: { 
           users: data.users,
           representatives: cleanedReps,

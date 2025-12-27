@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+
+import React, { useState, useMemo } from 'react';
 import { PaymentRecord, PaymentStatus, PaymentMethod, Representative, LevelFees } from '../types';
 import { 
   Smartphone, 
@@ -70,7 +71,7 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, onVerify
       }
     } catch (e) {
       console.error(e);
-      alert("❌ ERROR: Fallo de conexión con la pestaña OficinaVirtual.");
+      alert("❌ ERROR: Fallo de conexión con SistemCol > OficinaVirtual.");
     } finally {
       setIsSyncingExternal(false);
     }
@@ -114,7 +115,7 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, onVerify
               Pestaña: <span className="text-blue-500">OficinaVirtual</span>
             </h3>
             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.15em] mt-1.5 opacity-80">
-              ORIGEN: SistemCol (13lZSsC...GvdVLo)
+              ORIGEN: SistemCol (Base Unificada)
             </p>
           </div>
         </div>
@@ -158,7 +159,7 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, onVerify
               <div className="p-4 bg-amber-100 text-amber-600 rounded-2xl"><ShieldAlert size={24} /></div>
               <div>
                 <h3 className="text-xl font-black text-slate-800 tracking-tight">Pagos por Conciliar</h3>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Verifique la validez de los recibos de la Oficina Virtual</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Sincronizado de la pestaña OficinaVirtual en SistemCol</p>
               </div>
             </div>
             <span className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest">
@@ -173,7 +174,7 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, onVerify
                   <ShieldCheck size={40} />
                 </div>
                 <p className="text-xl font-black text-slate-800 uppercase">Sin Pendientes</p>
-                <p className="text-xs mt-2 text-slate-500 font-bold uppercase tracking-widest">No hay pagos de la Oficina Virtual por validar.</p>
+                <p className="text-xs mt-2 text-slate-500 font-bold uppercase tracking-widest">No hay pagos nuevos por validar.</p>
               </div>
             ) : (
               <table className="w-full text-left">
