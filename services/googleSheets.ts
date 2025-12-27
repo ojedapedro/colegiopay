@@ -3,17 +3,16 @@ import { User, Representative, PaymentRecord, LevelFees, PaymentStatus, Level, P
 
 const SISTEM_COL_SHEET_ID = '13lZSsC2YeTv6hPd1ktvOsexcIj9CA2wcpbxU-gvdVLo';
 const VIRTUAL_OFFICE_SHEET_ID = '17slRl7f9AKQgCEGF5jDLMGfmOc-unp1gXSRpYFGX1Eg';
-const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbnBy31uyMDtIQ0BhfMHlSH4SyTA1w9_dtFO7DdfCFgnkniSXKlEPlB8AEFyQo7aoTvFw/exec';
+/** 
+ * URL Oficial proporcionada: AKfycbx... (Notar la 'x' minúscula)
+ */
+const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxNBy31uyMDtIQ0BhfMHlSH4SyTA1w9_dtFO7DdfCFgnkniSXKlEPlB8AEFyQo7aoTvFw/exec';
 
 const cleanId = (id: any): string => {
   if (!id) return '0';
   return String(id).replace(/[VEve\-\.\s]/g, '').trim();
 };
 
-/**
- * Busca un valor en un objeto ignorando mayúsculas, minúsculas, espacios y tildes en la llave.
- * Crucial para cuando Google Sheets cambia ligeramente los nombres de las columnas.
- */
 const getFlexValue = (obj: any, searchKey: string): any => {
   const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s/g, "");
   const target = normalize(searchKey);
@@ -39,13 +38,9 @@ export const sheetService = {
   async safeParseJson(response: Response) {
     try {
       const text = await response.text();
-      if (!text || text.includes('<!DOCTYPE') || text.includes('<html')) {
-        console.error('Apps Script retornó HTML en lugar de JSON. Revise permisos (Anyone).');
-        return null;
-      }
+      if (!text || text.includes('<!DOCTYPE')) return null;
       return JSON.parse(text);
     } catch (e) {
-      console.error('Error parseando JSON:', e);
       return null;
     }
   },
@@ -86,13 +81,14 @@ export const sheetService = {
       if (!result) return [];
       const rawPayments = Array.isArray(result) ? result : (result.payments || result.data || []);
       
-      return rawPayments.map((p: any) => {
+      return rawPayments.map((p: any, index: number) => {
         const amount = parseFloat(String(getFlexValue(p, 'amount') || getFlexValue(p, 'monto') || 0).replace(',', '.'));
         const ref = String(getFlexValue(p, 'reference') || getFlexValue(p, 'referencia') || '0');
         const cedula = cleanId(getFlexValue(p, 'cedulaRepresentative') || getFlexValue(p, 'cedula') || getFlexValue(p, 'representante'));
         
         return {
-          id: `OV-${ref}-${cedula}-${Date.now()}`,
+          // ID estable y único para React
+          id: `OV-${ref}-${cedula}-${index}`, 
           timestamp: String(getFlexValue(p, 'timestamp') || new Date().toISOString()),
           paymentDate: String(getFlexValue(p, 'paymentDate') || getFlexValue(p, 'fecha') || new Date().toISOString().split('T')[0]),
           cedulaRepresentative: cedula,
@@ -108,7 +104,7 @@ export const sheetService = {
         };
       });
     } catch (error) {
-      console.error('Error fetchVirtualOffice:', error);
+      console.error('Error crítico fetchVirtualOffice:', error);
       return [];
     }
   },

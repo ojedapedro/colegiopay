@@ -1,0 +1,8 @@
+
+/* Archivo para satisfacer la carga de recursos del navegador y eliminar el error 404 */
+body {
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

@@ -40,8 +40,8 @@ const Dashboard: React.FC<Props> = ({ representatives, payments }) => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[400px]">
           <h3 className="text-lg font-bold text-slate-800 mb-6 uppercase tracking-tighter">Distribución por Nivel</h3>
-          <div className="flex-1 min-h-0">
-            <ResponsiveContainer width="100%" height="100%" minHeight={200}>
+          <div className="flex-1 w-full" style={{ minHeight: '250px' }}>
+            <ResponsiveContainer width="100%" height={300}>
               <BarChart data={levelData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} />
@@ -59,16 +59,16 @@ const Dashboard: React.FC<Props> = ({ representatives, payments }) => {
 
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[400px]">
           <h3 className="text-lg font-bold text-slate-800 mb-6 uppercase tracking-tighter">Métodos de Pago (Verificados)</h3>
-          <div className="flex-1 flex flex-col md:flex-row items-center min-h-0">
-            <div className="flex-1 w-full h-full">
-              <ResponsiveContainer width="100%" height="100%" minHeight={200}>
+          <div className="flex-1 flex flex-col md:flex-row items-center w-full" style={{ minHeight: '250px' }}>
+            <div className="flex-1 w-full">
+              <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
                   <Pie
                     data={methodData}
                     cx="50%"
                     cy="50%"
                     innerRadius={60}
-                    outerRadius={90}
+                    outerRadius={80}
                     paddingAngle={8}
                     dataKey="value"
                   >
@@ -79,7 +79,7 @@ const Dashboard: React.FC<Props> = ({ representatives, payments }) => {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <div className="space-y-4 mt-6 md:mt-0 md:ml-8 w-full md:w-48">
+            <div className="space-y-4 mt-2 md:mt-0 md:ml-4 w-full md:w-48">
               {methodData.map((d, i) => (
                 <div key={i} className="flex flex-col gap-1">
                   <div className="flex items-center gap-2">
