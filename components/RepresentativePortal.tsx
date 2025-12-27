@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Representative, PaymentRecord, PaymentStatus, PaymentMethod, LevelFees, Level } from '../types.ts';
+import { Representative, PaymentRecord, PaymentStatus, PaymentMethod, LevelFees, Level } from '../types';
 import { LogOut, CreditCard, History, User, CheckCircle2, Clock, AlertCircle, Plus, Landmark, Smartphone } from 'lucide-react';
 
 interface Props {
@@ -136,7 +136,7 @@ const RepresentativePortal: React.FC<Props> = ({ representative, payments, fees,
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Referencia / Comprobante</label>
-                  <input type="text" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Últimos 6 dígitos" className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 outline-none font-bold" required />
+                  <input type="text" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Últimos 6 dígitos" className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 outline-none focus:border-blue-500 font-bold" required />
                 </div>
               </div>
               <button type="submit" className="w-full p-5 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-100 uppercase tracking-widest">Enviar para Verificación</button>
