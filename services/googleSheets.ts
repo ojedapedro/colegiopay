@@ -1,4 +1,3 @@
-
 import { User, Representative, PaymentRecord, LevelFees, PaymentStatus, Level, PaymentMethod } from '../types';
 
 // ID de la Hoja de Cálculo SistemCol (ColegioPay)
@@ -9,7 +8,6 @@ const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxv497Vl2JiZ
 
 /**
  * Utilidad para normalizar cédulas: elimina prefijos (V-, E-), puntos y espacios.
- * Ej: "V-12.345.678" -> "12345678"
  */
 const cleanId = (id: any): string => {
   if (!id) return '0';
@@ -43,9 +41,6 @@ export const sheetService = {
     }
   },
 
-  /**
-   * Obtiene datos de ColegioPay (SistemCol)
-   */
   async fetchAll() {
     const url = this.getScriptUrl();
     if (!this.isValidConfig()) return null;
@@ -87,7 +82,6 @@ export const sheetService = {
     if (!this.isValidConfig()) return [];
 
     try {
-      // Usamos el mismo COLEGIO_PAY_SHEET_ID pero especificamos la hoja 'OficinaVirtual'
       const targetUrl = `${url}?action=get_external_payments&sheetId=${COLEGIO_PAY_SHEET_ID}&sheetName=OficinaVirtual&t=${Date.now()}`;
       
       const response = await fetch(targetUrl, {
@@ -101,11 +95,7 @@ export const sheetService = {
       const rawPayments = Array.isArray(result) ? result : (result.payments || result.data || []);
       
       return rawPayments.map((p: any) => {
-        // Mapeo basado en la estructura de la imagen:
-        // Column D: Cedula Represe
-        // Column G: Tipo Pago
-        // Column H: Modo Pago (Abono / Total)
-        // Column J: Monto
+        // Mapeo basado en la estructura de la imagen de Google Sheets
         const cleanedCedula = cleanId(p["Cedula Represe"] || p["Cedula Representante"] || p.cedula);
         const rawMonto = p["Monto"] || p["Amount"] || 0;
         const amount = typeof rawMonto === 'string' ? parseFloat(rawMonto.replace(',', '.')) : parseFloat(rawMonto);

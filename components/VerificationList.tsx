@@ -1,8 +1,6 @@
-
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { PaymentRecord, PaymentStatus, PaymentMethod, Representative, LevelFees } from '../types';
 import { 
-  CreditCard, 
   Smartphone, 
   Landmark, 
   ReceiptText, 
@@ -11,7 +9,7 @@ import {
   ShieldCheck, 
   ShieldAlert, 
   Filter, 
-  RefreshCw, 
+  RefreshCcw, 
   Globe
 } from 'lucide-react';
 import { sheetService } from '../services/googleSheets';
@@ -24,7 +22,7 @@ interface Props {
   onImportExternal?: (newPayments: PaymentRecord[]) => void;
 }
 
-const VerificationList: React.FC<Props> = ({ payments, representatives, fees, onVerify, onImportExternal }) => {
+const VerificationList: React.FC<Props> = ({ payments, representatives, onVerify, onImportExternal }) => {
   const [isSyncingExternal, setIsSyncingExternal] = useState(false);
   
   const [filterDate, setFilterDate] = useState('');
@@ -49,7 +47,6 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, fees, on
 
     setIsSyncingExternal(true);
     try {
-      // Ahora fetchVirtualOfficePayments lee la pestaña OficinaVirtual en SistemCol
       const externalPayments = await sheetService.fetchVirtualOfficePayments();
       
       if (externalPayments && externalPayments.length > 0 && onImportExternal) {
@@ -131,7 +128,7 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, fees, on
               : 'bg-[#2563eb] text-white hover:bg-blue-600 shadow-lg shadow-blue-700/20 active:scale-95'
           }`}
         >
-          <RefreshCw size={18} className={isSyncingExternal ? 'animate-spin' : ''} />
+          <RefreshCcw size={18} className={isSyncingExternal ? 'animate-spin' : ''} />
           {isSyncingExternal ? 'PROCESANDO...' : 'SINC. OFICINA VIRTUAL'}
         </button>
       </div>
@@ -248,7 +245,7 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, fees, on
           </div>
           
           <div className="p-6 bg-slate-50 border-t border-slate-100 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">
-            Sincronizado directamente desde SistemCol > OficinaVirtual.
+            Sincronizado directamente desde SistemCol &gt; OficinaVirtual.
           </div>
         </div>
       </div>
