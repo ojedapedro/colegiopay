@@ -1,9 +1,8 @@
-
 import React, { useState } from 'react';
 import { Level, LevelFees } from '../types';
 import { ICONS } from '../constants';
 import { sheetService } from '../services/googleSheets';
-import { Link, RefreshCcw, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Link, RefreshCcw, ShieldCheck } from 'lucide-react';
 
 interface Props {
   fees: LevelFees;
@@ -20,7 +19,7 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
   };
 
   const handleRestoreDefault = () => {
-    const defaultUrl = 'https://script.google.com/macros/s/AKfycbzBdfC3yAPAtheuAMpBb1jtW98uHIsGL0dONHl33w891WlgyrbsunesQMHqvhkcHDg21A/exec';
+    const defaultUrl = 'https://script.google.com/macros/s/AKfycbxBBsRqQ9nZykVioVqgQ_I3wmCYz3gncOM1rxZbFfgEPF-ijLp0Qp63fAKjsNxcytPNIQ/exec';
     setScriptUrl(defaultUrl);
     sheetService.setScriptUrl(defaultUrl);
     setSaveStatus('saved');
@@ -45,7 +44,7 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
     }, 1200);
   };
 
-  const isOfficialUrl = scriptUrl.includes('AKfycbzBdfC3yAPAtheuAMpBb1jtW98uHIsGL0dONHl33w891WlgyrbsunesQMHqvhkcHDg21A');
+  const isOfficialUrl = scriptUrl.includes('AKfycbxBBsRqQ9nZykVioVqgQ_I3wmCYz3gncOM1rxZbFfgEPF-ijLp0Qp63fAKjsNxcytPNIQ');
 
   return (
     <div className="space-y-8 animate-fadeIn pb-20">
@@ -56,14 +55,14 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
               <Link size={24} />
             </div>
             <div>
-              <h3 className="text-xl font-black uppercase tracking-tight">Enlace de Datos</h3>
-              <p className="text-sm text-slate-400 font-medium">Sincronización con Oficina Virtual</p>
+              <h3 className="text-xl font-black uppercase tracking-tight">Enlace de Datos PNIQ</h3>
+              <p className="text-sm text-slate-400 font-medium">Conexión Dual: SistemCol + Oficina Virtual</p>
             </div>
           </div>
           {isOfficialUrl && (
             <div className="flex items-center gap-2 bg-emerald-500/10 text-emerald-400 px-4 py-2 rounded-xl border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest">
               <ShieldCheck size={14} />
-              URL Oficial Detectada
+              Motor Activo (PNIQ)
             </div>
           )}
         </div>
@@ -71,12 +70,12 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
         <div className="p-10 space-y-8">
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">URL del Motor de Base de Datos</label>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Configuración del Servidor</label>
               <button 
                 onClick={handleRestoreDefault}
                 className="text-[9px] font-black text-blue-600 uppercase hover:underline flex items-center gap-1"
               >
-                <RefreshCcw size={10} /> Restaurar oficial
+                <RefreshCcw size={10} /> Restaurar URL Original
               </button>
             </div>
             
@@ -98,28 +97,29 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
                   className="p-5 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 uppercase tracking-widest text-xs flex items-center justify-center gap-3"
                 >
                   {saveStatus === 'testing' ? <RefreshCcw className="animate-spin" size={16} /> : null}
-                  {saveStatus === 'testing' ? 'Probando Enlace...' : 'Actualizar Conexión'}
+                  {saveStatus === 'testing' ? 'Verificando Red...' : 'Guardar y Sincronizar'}
                 </button>
                 
                 <a 
-                  href="https://docs.google.com/spreadsheets/d/17slRl7f9AKQgCEGF5jDLMGfmOc-unp1gXSRpYFGX1Eg/edit" 
+                  href="https://docs.google.com/spreadsheets/d/13lZSsC2YeTv6hPd1ktvOsexcIj9CA2wcpbxU-gvdVLo/edit" 
                   target="_blank" 
                   rel="noreferrer"
                   className="p-5 bg-slate-100 text-slate-600 font-black rounded-2xl hover:bg-slate-200 transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-3"
                 >
                   <ICONS.Search.type {...ICONS.Search.props} size={16} />
-                  Abrir Hoja de Cálculo
+                  Ver Base Principal
                 </a>
               </div>
             </div>
 
-            <div className="p-6 bg-amber-50 rounded-3xl border border-amber-100 flex gap-4">
-               <div className="text-amber-500 mt-1"><AlertTriangle size={24} /></div>
+            <div className="p-6 bg-blue-50 rounded-3xl border border-blue-100 flex gap-4">
+               <div className="text-blue-500 mt-1"><Link size={24} /></div>
                <div>
-                 <h4 className="font-black text-amber-800 text-xs uppercase mb-1">Nota Técnica de Integración</h4>
-                 <p className="text-[11px] text-amber-700 leading-relaxed font-medium">
-                   El ID de la Oficina Virtual (17slRl...FGX1Eg) está vinculado de forma permanente al motor de verificación. 
-                   Asegúrese de que el Apps Script tenga permisos de edición sobre esa hoja para que la sincronización sea exitosa.
+                 <h4 className="font-black text-blue-800 text-xs uppercase mb-1">Arquitectura Multibase Conectada</h4>
+                 <p className="text-[11px] text-blue-700 leading-relaxed font-medium">
+                   1. <strong>Cuentas:</strong> Se leen de SistemCol (ID: 13lZSsC...).<br/>
+                   2. <strong>Reportes Web:</strong> Se leen de Oficina Virtual (ID: 17slRl...).<br/>
+                   3. <strong>Sincronización:</strong> Los pagos verificados se abonan al libro maestro automáticamente.
                  </p>
                </div>
             </div>
@@ -135,7 +135,7 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
             </div>
             <div>
               <h3 className="text-lg font-bold text-slate-800">Tabla de Aranceles</h3>
-              <p className="text-sm text-slate-500 font-medium">Precios base para el año escolar actual</p>
+              <p className="text-sm text-slate-500 font-medium">Montos base para el devengo mensual automático</p>
             </div>
           </div>
         </div>

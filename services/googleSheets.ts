@@ -1,14 +1,17 @@
 
 import { User, Representative, PaymentRecord, LevelFees, PaymentStatus, Level, PaymentMethod } from '../types';
 
-// ID Único de la Base de Datos SistemCol (ColegioPay)
+// ID de la Base de Datos Principal (SistemCol)
 const SISTEM_COL_SHEET_ID = '13lZSsC2YeTv6hPd1ktvOsexcIj9CA2wcpbxU-gvdVLo';
 
-// URL del Apps Script (Motor de datos)
-const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxv497Vl2JiZMx4clinJ-BXmEEHRnZaxfho3-ZRTVp1gtmbk69ncbAHsxxCsPz03vOcyg/exec';
+// ID de la Base de Datos de Reportes (Oficina Virtual)
+const VIRTUAL_OFFICE_SHEET_ID = '17slRl7f9AKQgCEGF5jDLMGfmOc-unp1gXSRpYFGX1Eg';
+
+// URL del Motor de Datos (Apps Script)
+const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxBBsRqQ9nZykVioVqgQ_I3wmCYz3gncOM1rxZbFfgEPF-ijLp0Qp63fAKjsNxcytPNIQ/exec';
 
 /**
- * Normaliza la cédula eliminando prefijos "V-", "E-", puntos y espacios
+ * Normaliza la cédula: elimina prefijos, puntos y espacios.
  */
 const cleanId = (id: any): string => {
   if (!id) return '0';
@@ -32,32 +35,43 @@ export const sheetService = {
     return url !== '' && url.includes('/macros/s/') && url.endsWith('/exec');
   },
 
+  /**
+   * Intenta parsear JSON de forma segura, manejando respuestas vacías o errores de HTML
+   */
   async safeParseJson(response: Response) {
-    const text = await response.text();
     try {
+      const text = await response.text();
+      if (!text || text.trim().startsWith('<!DOCTYPE')) {
+        console.error('La respuesta del servidor no es JSON (posible error de permisos o script no publicado)');
+        return null;
+      }
       return JSON.parse(text);
     } catch (e) {
-      console.warn('Respuesta no válida:', text);
+      console.error('Error al parsear respuesta del servidor:', e);
       return null;
     }
   },
 
   /**
-   * Lee todos los datos maestros de SistemCol
+   * Lee datos de SistemCol (Base Principal)
+   * Se simplifica la petición para evitar errores 'Failed to fetch' por CORS
    */
   async fetchAll() {
     const url = this.getScriptUrl();
     if (!this.isValidConfig()) return null;
 
     try {
+      // Petición simplificada para evitar preflight de CORS
       const response = await fetch(`${url}?action=read_all&sheetId=${SISTEM_COL_SHEET_ID}`, {
         method: 'GET',
+        redirect: 'follow',
         cache: 'no-store'
       });
       
-      const data = await this.safeParseJson(response);
+      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
       
-      if (data) {
+      const data = await this.safeParseJson(response);
+      if (data && !data.error) {
         if (data.payments) {
           data.payments = data.payments.map((p: any) => ({
             ...p,
@@ -79,20 +93,22 @@ export const sheetService = {
   },
 
   /**
-   * Lee específicamente la pestaña OficinaVirtual dentro de SistemCol
+   * Lee la base de datos de la Oficina Virtual
    */
   async fetchVirtualOfficePayments() {
     const url = this.getScriptUrl();
     if (!this.isValidConfig()) return [];
 
     try {
-      // Petición apuntando a la pestaña 'OficinaVirtual' en el mismo archivo
-      const targetUrl = `${url}?action=get_external_payments&sheetId=${SISTEM_COL_SHEET_ID}&sheetName=OficinaVirtual&t=${Date.now()}`;
+      const targetUrl = `${url}?action=get_external_payments&sheetId=${VIRTUAL_OFFICE_SHEET_ID}&sheetName=OficinaVirtual&t=${Date.now()}`;
       
       const response = await fetch(targetUrl, {
         method: 'GET',
+        redirect: 'follow',
         cache: 'no-store'
       });
+
+      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
 
       const result = await this.safeParseJson(response);
       if (!result) return [];
@@ -100,11 +116,6 @@ export const sheetService = {
       const rawPayments = Array.isArray(result) ? result : (result.payments || result.data || []);
       
       return rawPayments.map((p: any) => {
-        // Mapeo basado en la fotografía de Google Sheets:
-        // Col D: "Cedula Represe"
-        // Col G: "Tipo Pago"
-        // Col H: "Modo Pago"
-        // Col J: "Monto"
         const cleanedCedula = cleanId(p["Cedula Represe"] || p["Cedula Representante"] || p.cedula);
         const rawMonto = p["Monto"] || p["Amount"] || 0;
         const amount = typeof rawMonto === 'string' ? parseFloat(rawMonto.replace(',', '.')) : parseFloat(rawMonto);
@@ -127,13 +138,13 @@ export const sheetService = {
         };
       });
     } catch (error) {
-      console.error('Error leyendo pestaña OficinaVirtual:', error);
+      console.error('Error leyendo Oficina Virtual:', error);
       return [];
     }
   },
 
   /**
-   * Sincroniza todos los datos de vuelta a SistemCol
+   * Sincroniza al Libro de Cuentas por Cobrar en SistemCol
    */
   async syncAll(data: { users: User[], representatives: Representative[], payments: PaymentRecord[], fees: LevelFees }) {
     const url = this.getScriptUrl();
@@ -146,7 +157,6 @@ export const sheetService = {
         cedulaRepresentative: cleanId(p.cedulaRepresentative)
       }));
 
-      // Preparamos el resumen para la hoja 'CuentasPorCobrar'
       const ledger = cleanedReps.map(rep => {
         const totalDue = rep.totalAccruedDebt || 0;
         const totalPaid = cleanedPays
@@ -177,10 +187,12 @@ export const sheetService = {
         } 
       };
 
+      // Usamos Content-Type text/plain para evitar comprobaciones pre-vuelo de CORS
+      // Google Apps Script lo recibirá como e.postData.contents
       await fetch(url, {
         method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain' },
+        redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload)
       });
       
