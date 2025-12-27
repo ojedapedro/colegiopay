@@ -2,17 +2,17 @@
 import { User, Representative, PaymentRecord, LevelFees, PaymentStatus, Level, PaymentMethod } from '../types';
 
 /**
- * ID de la Base de Datos Principal (SistemCol)
+ * ID de la Base de Datos Principal (SistemCol) - Imagen 3
  */
 const SISTEM_COL_SHEET_ID = '13lZSsC2YeTv6hPd1ktvOsexcIj9CA2wcpbxU-gvdVLo';
 
 /**
- * ID de la Oficina Virtual (Hojas de Pagos y Usuarios externos)
+ * ID de la Oficina Virtual - Imagen 1 y 2
  */
 const VIRTUAL_OFFICE_SHEET_ID = '17slRl7f9AKQgCEGF5jDLMGfmOc-unp1gXSRpYFGX1Eg';
 
 /**
- * URL de implementación definitiva proporcionada por el usuario
+ * URL Oficial proporcionada por el usuario (Corregida: AKfycbn...)
  */
 const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbnBy31uyMDtIQ0BhfMHlSH4SyTA1w9_dtFO7DdfCFgnkniSXKlEPlB8AEFyQo7aoTvFw/exec';
 
@@ -24,7 +24,7 @@ const cleanId = (id: any): string => {
 export const sheetService = {
   getScriptUrl() {
     const saved = localStorage.getItem('school_script_url');
-    return (saved && saved.trim() !== '') ? saved.trim() : DEFAULT_SCRIPT_URL;
+    return (saved && saved.trim() !== '' && saved.includes('script.google.com')) ? saved.trim() : DEFAULT_SCRIPT_URL;
   },
 
   setScriptUrl(url: string) {
@@ -36,38 +36,29 @@ export const sheetService = {
     return url && url.includes('/macros/s/') && url.includes('/exec');
   },
 
-  /**
-   * Intenta parsear JSON de forma segura manejando errores de CORS/Redirección
-   */
   async safeParseJson(response: Response) {
     try {
       const text = await response.text();
-      if (!text) return null;
-      if (text.trim().toLowerCase().startsWith('<!doctype')) {
-        console.error('El servidor de Google requiere autenticación manual o el script no es público.');
+      if (!text || text.includes('<!DOCTYPE') || text.includes('<html')) {
+        console.error('La respuesta de Google no es JSON válido (Posible error de permisos/Anyone).');
         return null;
       }
       return JSON.parse(text);
     } catch (e) {
-      console.error('Error parseando respuesta de Google Sheets:', e);
+      console.error('Error al parsear respuesta:', e);
       return null;
     }
   },
 
-  /**
-   * Lee la base de datos principal SistemCol (Maestro)
-   */
   async fetchAll() {
     if (!this.isValidConfig()) return null;
     const url = this.getScriptUrl();
 
     try {
-      const fetchUrl = `${url}?action=read_all&sheetId=${SISTEM_COL_SHEET_ID}&t=${Date.now()}`;
-      const response = await fetch(fetchUrl, {
+      const response = await fetch(`${url}?action=read_all&sheetId=${SISTEM_COL_SHEET_ID}&t=${Date.now()}`, {
         method: 'GET',
         mode: 'cors',
-        redirect: 'follow',
-        cache: 'no-store'
+        redirect: 'follow'
       });
       
       const data = await this.safeParseJson(response);
@@ -78,30 +69,21 @@ export const sheetService = {
             cedulaRepresentative: cleanId(p.cedulaRepresentative || p.cedula)
           }));
         }
-        if (data.representatives) {
-          data.representatives = data.representatives.map((r: any) => ({
-            ...r,
-            cedula: cleanId(r.cedula)
-          }));
-        }
         return data;
       }
       return null;
     } catch (error) {
-      console.error('Error crítico conectando a SistemCol:', error);
+      console.warn('SistemCol unreachable');
       return null;
     }
   },
 
-  /**
-   * Importa los pagos desde la Oficina Virtual (ID: 17slRl...)
-   * Estructura basada exactamente en la Imagen 2
-   */
   async fetchVirtualOfficePayments() {
     if (!this.isValidConfig()) return [];
     const url = this.getScriptUrl();
 
     try {
+      // Intentamos obtener desde la hoja "Pagos" (Imagen 2)
       const targetUrl = `${url}?action=get_external_payments&sheetId=${VIRTUAL_OFFICE_SHEET_ID}&sheetName=Pagos&t=${Date.now()}`;
       
       const response = await fetch(targetUrl, {
@@ -115,31 +97,34 @@ export const sheetService = {
 
       const rawPayments = Array.isArray(result) ? result : (result.payments || result.data || []);
       
-      return rawPayments.map((p: any) => ({
-        id: String(p.id || `OV-${Date.now()}`),
-        timestamp: String(p.timestamp || ''),
-        paymentDate: String(p.paymentDate || ''),
-        cedulaRepresentative: cleanId(p.cedulaRepresentative),
-        matricula: String(p.matricula || 'N/A'),
-        level: (p.level || Level.PRIMARIA) as Level,
-        method: (p.method || PaymentMethod.PAGO_MOVIL) as PaymentMethod,
-        reference: String(p.reference || ''),
-        amount: parseFloat(String(p.amount).replace(',', '.')) || 0,
-        observations: String(p.observations || ''),
-        status: PaymentStatus.PENDIENTE,
-        type: (String(p.type).toUpperCase() === 'ABONO' ? 'ABONO' : 'TOTAL') as 'ABONO' | 'TOTAL',
-        pendingBalance: parseFloat(String(p.pendingBalance).replace(',', '.')) || 0
-      }));
+      // Mapeo exhaustivo para garantizar que los datos aparezcan en la UI
+      return rawPayments.map((p: any) => {
+        const amount = parseFloat(String(p.amount || p.Monto || 0).replace(',', '.'));
+        const ref = String(p.reference || p.Referencia || '0');
+        const cedula = cleanId(p.cedulaRepresentative || p.cedula || p["Cedula Represe"]);
+        
+        return {
+          id: String(p.id || `OV-${ref}-${cedula}-${Date.now()}`),
+          timestamp: String(p.timestamp || new Date().toISOString()),
+          paymentDate: String(p.paymentDate || p["Fecha Pago"] || new Date().toISOString().split('T')[0]),
+          cedulaRepresentative: cedula,
+          matricula: String(p.matricula || p.Matricula || 'N/A'),
+          level: (p.level || p.Nivel || Level.PRIMARIA) as Level,
+          method: (p.method || p.Instrumento || PaymentMethod.PAGO_MOVIL) as PaymentMethod,
+          reference: ref,
+          amount: isNaN(amount) ? 0 : amount,
+          observations: String(p.observations || p.Observaciones || '[Oficina Virtual]'),
+          status: PaymentStatus.PENDIENTE, // Forzamos PENDIENTE para que aparezca en Verificación
+          type: (String(p.type || '').toUpperCase().includes('ABONO') ? 'ABONO' : 'TOTAL') as 'ABONO' | 'TOTAL',
+          pendingBalance: parseFloat(String(p.pendingBalance || 0))
+        };
+      });
     } catch (error) {
-      console.error('Error importando desde Oficina Virtual:', error);
+      console.error('Error Oficina Virtual:', error);
       return [];
     }
   },
 
-  /**
-   * Sincroniza al Libro Maestro y genera CuentasPorCobrar
-   * Formato exacto Imagen 3
-   */
   async syncAll(data: { users: User[], representatives: Representative[], payments: PaymentRecord[], fees: LevelFees }) {
     if (!this.isValidConfig()) return false;
     const url = this.getScriptUrl();
@@ -171,21 +156,19 @@ export const sheetService = {
           representatives: data.representatives,
           payments: data.payments,
           fees: data.fees,
-          ledger // Actualiza hoja CuentasPorCobrar
+          ledger 
         } 
       };
 
-      // no-cors evita el preflight pero no permite leer la respuesta (seguro para guardado ciego)
       await fetch(url, {
         method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        mode: 'no-cors', // Evita errores de preflight CORS
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify(payload)
       });
       
       return true;
     } catch (error) {
-      console.error('Fallo en sincronización maestra:', error);
       return false;
     }
   }

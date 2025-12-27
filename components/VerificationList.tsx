@@ -39,9 +39,13 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, onVerify
     );
     
     if (filterDate) filtered = filtered.filter(p => p.paymentDate === filterDate);
-    if (searchQuery) filtered = filtered.filter(p => 
-      p.cedulaRepresentative.includes(searchQuery) || p.reference.includes(searchQuery)
-    );
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter(p => 
+        p.cedulaRepresentative.includes(q) || 
+        p.reference.toLowerCase().includes(q)
+      );
+    }
     
     return filtered;
   }, [payments, activeTab, filterDate, searchQuery]);
@@ -57,27 +61,28 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, onVerify
       const externalPayments = await sheetService.fetchVirtualOfficePayments();
       
       if (externalPayments && externalPayments.length > 0 && onImportExternal) {
-        // Evitar duplicados basados en referencia + cédula + monto
-        const existingFingerprints = new Set(payments.map(p => 
-          `${String(p.reference).trim()}-${p.amount}-${String(p.cedulaRepresentative).trim()}`
+        // Huella digital simplificada para evitar bloqueos por tipos de datos
+        const existingFingers = new Set(payments.map(p => 
+          `${String(p.reference).trim().toLowerCase()}-${Number(p.amount)}`
         ));
         
         const news = externalPayments.filter((p: PaymentRecord) => {
-          const finger = `${String(p.reference).trim()}-${p.amount}-${String(p.cedulaRepresentative).trim()}`;
-          return !existingFingerprints.has(finger);
+          const finger = `${String(p.reference).trim().toLowerCase()}-${Number(p.amount)}`;
+          return !existingFingers.has(finger);
         });
         
         if (news.length > 0) {
           onImportExternal(news);
           alert(`✅ OFICINA VIRTUAL: Se cargaron ${news.length} registros nuevos.`);
         } else {
-          alert("ℹ️ No hay registros nuevos en la Oficina Virtual.");
+          alert("ℹ️ No hay registros nuevos en la Oficina Virtual (Ya importados).");
         }
       } else {
-        alert("ℹ️ No se detectaron pagos nuevos.");
+        alert("ℹ️ No se detectaron pagos en la Oficina Virtual.");
       }
     } catch (e) {
-      alert("❌ ERROR: Fallo de conexión con Oficina Virtual.");
+      console.error(e);
+      alert("❌ ERROR: Fallo al conectar. Verifique internet y URL de Apps Script.");
     } finally {
       setIsSyncingExternal(false);
     }
@@ -243,7 +248,7 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, onVerify
                   <ShieldCheck size={40} />
                 </div>
                 <p className="text-lg font-black text-slate-800 uppercase">Sin resultados</p>
-                <p className="text-xs mt-1 text-slate-400 font-bold uppercase">No se encontraron pagos en esta sección.</p>
+                <p className="text-xs mt-1 text-slate-400 font-bold uppercase">No hay pagos {activeTab === 'pending' ? 'pendientes' : 'rechazados'}.</p>
               </div>
             ) : (
               <table className="w-full text-left">
@@ -299,7 +304,6 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, onVerify
                                     const reason = prompt("Indique motivo del rechazo:");
                                     if (reason) {
                                       onVerify(p.id, PaymentStatus.RECHAZADO);
-                                      // Aquí podrías guardar 'reason' en el record si extiendes el tipo
                                     }
                                   }}
                                   className="p-3 bg-white text-rose-500 border border-rose-100 rounded-xl hover:bg-rose-50 transition-all active:scale-90"

@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Level, LevelFees } from '../types';
 import { ICONS } from '../constants';
 import { sheetService } from '../services/googleSheets';
-import { Link, RefreshCcw, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Link, RefreshCcw, ShieldCheck, AlertCircle, Trash2 } from 'lucide-react';
 
 interface Props {
   fees: LevelFees;
@@ -20,17 +20,25 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
   };
 
   const handleRestoreDefault = () => {
-    const defaultUrl = 'https://script.google.com/macros/s/AKfycbxNBy31uyMDtIQ0BhfMHlSH4SyTA1w9_dtFO7DdfCFgnkniSXKlEPlB8AEFyQo7aoTvFw/exec';
+    const defaultUrl = 'https://script.google.com/macros/s/AKfycbnBy31uyMDtIQ0BhfMHlSH4SyTA1w9_dtFO7DdfCFgnkniSXKlEPlB8AEFyQo7aoTvFw/exec';
     setScriptUrl(defaultUrl);
     sheetService.setScriptUrl(defaultUrl);
     setSaveStatus('saved');
+    alert('URL Oficial restaurada correctamente.');
+  };
+
+  const handleClearLocal = () => {
+    if (confirm('¿BORRAR TODO EL CACHE LOCAL?\n\nEsto cerrará su sesión y limpiará los datos guardados en este navegador. Los datos en Google Sheets no se verán afectados.')) {
+      localStorage.clear();
+      window.location.reload();
+    }
   };
 
   const handleSaveUrl = async () => {
     const cleanUrl = scriptUrl.trim();
     if (!cleanUrl.includes('/exec')) {
       setSaveStatus('error');
-      alert('URL NO VALIDA. Debe ser una URL de Apps Script terminada en /exec');
+      alert('URL NO VALIDA. Verifique que termine en /exec');
       return;
     }
 
@@ -41,14 +49,14 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
       const data = await sheetService.fetchAll();
       if (data) {
         setSaveStatus('saved');
-        alert('CONEXION EXITOSA. Datos vinculados con SistemCol y Oficina Virtual.');
+        alert('CONEXION EXITOSA. Se han sincronizado los datos maestros.');
       } else {
         setSaveStatus('error');
-        alert('ERROR DE PERMISOS. El script no devolvio datos. Revise si esta publicado como Anyone (Cualquiera).');
+        alert('ERROR: El script respondió pero no devolvió datos. Revise los permisos en Apps Script (Anyone/Cualquiera).');
       }
     } catch (e) {
       setSaveStatus('error');
-      alert('FALLO DE RED. El servidor de Google no responde. Revise su conexion.');
+      alert('FALLO DE RED: No se pudo contactar con Google.');
     }
   };
 
@@ -75,7 +83,7 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
           <div className="p-6 bg-amber-50 border border-amber-100 rounded-3xl flex gap-4">
             <div className="text-amber-500 mt-1"><AlertCircle size={24} /></div>
             <div className="space-y-2">
-              <h4 className="text-xs font-black text-amber-800 uppercase tracking-tighter">Guia de Publicacion (Evitar Fallos)</h4>
+              <h4 className="text-xs font-black text-amber-800 uppercase tracking-tighter">Guia de Publicacion</h4>
               <p className="text-[11px] text-amber-700 leading-relaxed font-medium">
                 Si ve el error de red, verifique la publicacion del Apps Script:<br/>
                 1. Ir a Implementar - Nueva implementacion.<br/>
@@ -89,12 +97,20 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">URL de Apps Script (Puente ColegioPay)</label>
-              <button 
-                onClick={handleRestoreDefault}
-                className="text-[9px] font-black text-blue-600 uppercase hover:underline flex items-center gap-1"
-              >
-                <RefreshCcw size={10} /> Restaurar Oficial
-              </button>
+              <div className="flex gap-4">
+                <button 
+                  onClick={handleClearLocal}
+                  className="text-[9px] font-black text-rose-500 uppercase hover:underline flex items-center gap-1"
+                >
+                  <Trash2 size={10} /> Limpiar Cache
+                </button>
+                <button 
+                  onClick={handleRestoreDefault}
+                  className="text-[9px] font-black text-blue-600 uppercase hover:underline flex items-center gap-1"
+                >
+                  <RefreshCcw size={10} /> Restaurar Oficial
+                </button>
+              </div>
             </div>
             
             <div className="flex flex-col gap-5">
