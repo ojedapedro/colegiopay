@@ -16,17 +16,17 @@ import { ChevronDown, ChevronUp, ShieldCheck, LayoutGrid, ClipboardList, Wallet,
 import { initialRepresentatives, initialPayments, initialUsers } from './services/mockData';
 import { sheetService } from './services/googleSheets';
 
-// UI Components
-import Dashboard from './components/Dashboard';
-import StudentRegistration from './components/StudentRegistration';
-import PaymentModule from './components/PaymentModule';
-import VerificationList from './components/VerificationList';
-import ReportsModule from './components/ReportsModule';
-import Auth from './components/Auth';
-import UserManagement from './components/UserManagement';
-import SettingsModule from './components/SettingsModule';
-import LedgerModule from './components/LedgerModule';
-import RepresentativePortal from './components/RepresentativePortal';
+// UI Components con extensiones explícitas para el bundler
+import Dashboard from './components/Dashboard.tsx';
+import StudentRegistration from './components/StudentRegistration.tsx';
+import PaymentModule from './components/PaymentModule.tsx';
+import VerificationList from './components/VerificationList.tsx';
+import ReportsModule from './components/ReportsModule.tsx';
+import Auth from './components/Auth.tsx';
+import UserManagement from './components/UserManagement.tsx';
+import SettingsModule from './components/SettingsModule.tsx';
+import LedgerModule from './components/LedgerModule.tsx';
+import RepresentativePortal from './components/RepresentativePortal.tsx';
 
 const INSTITUTION_LOGO = "https://i.ibb.co/FbHJbvVT/images.png";
 
@@ -160,7 +160,6 @@ const App: React.FC = () => {
     );
   }
 
-  // Si el logueado es un representante, mostrar su portal directamente
   if (currentRep) {
     return (
       <RepresentativePortal 
@@ -177,16 +176,12 @@ const App: React.FC = () => {
     return (
       <Auth 
         users={users} 
-        onLogin={(u) => { 
-          // El componente Auth ahora solo maneja la lógica visual, la decisión final se toma aquí
-          handleLogin(u.cedula);
-        }} 
+        onLogin={(u) => handleLogin(u.cedula)} 
         onRegister={(u) => updateData([...users, u], representatives, payments, fees)} 
       />
     );
   }
 
-  // Interfaz Administrativa (Ya existente)
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-[#f1f5f9]">
       <aside className="w-full md:w-72 bg-[#0f172a] text-white flex flex-col shadow-2xl z-20">

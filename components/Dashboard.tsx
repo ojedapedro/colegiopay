@@ -38,11 +38,11 @@ const Dashboard: React.FC<Props> = ({ representatives, payments }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[400px]">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[450px]">
           <h3 className="text-lg font-bold text-slate-800 mb-6 uppercase tracking-tighter">Distribución por Nivel</h3>
-          <div className="flex-1 w-full" style={{ minHeight: '250px' }}>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={levelData}>
+          <div className="flex-1 w-full" style={{ minHeight: '300px', width: '100%' }}>
+            <ResponsiveContainer width="100%" height="100%" minHeight={300}>
+              <BarChart data={levelData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} />
                 <YAxis fontSize={10} tickLine={false} axisLine={false} />
@@ -57,11 +57,11 @@ const Dashboard: React.FC<Props> = ({ representatives, payments }) => {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[400px]">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[450px]">
           <h3 className="text-lg font-bold text-slate-800 mb-6 uppercase tracking-tighter">Métodos de Pago (Verificados)</h3>
-          <div className="flex-1 flex flex-col md:flex-row items-center w-full" style={{ minHeight: '250px' }}>
-            <div className="flex-1 w-full">
-              <ResponsiveContainer width="100%" height={280}>
+          <div className="flex-1 flex flex-col md:flex-row items-center w-full" style={{ minHeight: '300px' }}>
+            <div className="flex-1 w-full h-full">
+              <ResponsiveContainer width="100%" height="100%" minHeight={280}>
                 <PieChart>
                   <Pie
                     data={methodData}
