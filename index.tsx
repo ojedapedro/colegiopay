@@ -5,12 +5,12 @@ import App from './App.tsx';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
-  throw new Error("No se pudo encontrar el elemento root para montar la aplicación.");
+  console.error("No se pudo encontrar el elemento root para montar la aplicación.");
+} else {
+  const root = ReactDOM.createRoot(rootElement);
+  root.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
 }
-
-const root = ReactDOM.createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
