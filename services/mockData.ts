@@ -2,15 +2,22 @@ import { Representative, Level, Student, PaymentRecord, PaymentMethod, PaymentSt
 
 export const initialUsers: User[] = [
   {
+    cedula: "12524553",
+    fullName: "Super Usuario",
+    role: UserRole.ADMINISTRADOR,
+    password: "230274",
+    createdAt: new Date().toISOString()
+  },
+  {
     cedula: "10203040",
-    fullName: "Admin Principal",
+    fullName: "Admin de Respaldo",
     role: UserRole.ADMINISTRADOR,
     password: "123456",
     createdAt: new Date().toISOString()
   },
   {
     cedula: "20304050",
-    fullName: "Operador Caja",
+    fullName: "Operador Caja 01",
     role: UserRole.CAJERO,
     password: "123456",
     createdAt: new Date().toISOString()
