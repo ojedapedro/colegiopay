@@ -70,7 +70,7 @@ export const sheetService = {
     if (!this.isValidConfig()) return [];
     const url = this.getScriptUrl();
     try {
-      // Cambio: Ahora busca en la pestaña "OficinaVirtual" de la MISMA base de datos principal
+      // Importante: sheetName debe ser "OficinaVirtual" tal cual aparece en el Excel del usuario
       const targetUrl = `${url}?action=get_external_payments&sheetId=${SISTEM_COL_SHEET_ID}&sheetName=OficinaVirtual&t=${Date.now()}`;
       const response = await fetch(targetUrl, { method: 'GET', mode: 'cors', redirect: 'follow' });
       const result = await this.safeParseJson(response);
