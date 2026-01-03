@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { PaymentRecord, PaymentStatus, PaymentMethod, Representative, LevelFees } from '../types';
 import { 
@@ -56,18 +55,17 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, onVerify
     setIsSyncingExternal(true);
     try {
       const externalPayments = await sheetService.fetchVirtualOfficePayments();
-      console.log("Registros detectados en Oficina Virtual:", externalPayments.length);
+      console.log("Registros detectados en pestaña Oficina Virtual:", externalPayments.length);
       
       if (externalPayments && externalPayments.length > 0 && onImportExternal) {
-        // Huella digital ultra-simplificada: Referencia + Monto (Evita conflictos por IDs o fechas)
+        // Huella digital para evitar duplicados: ID de la hoja o Referencia + Monto
         const existingKeys = new Set(payments.map(p => 
-          `${String(p.reference).trim().toLowerCase()}_${parseFloat(String(p.amount)).toFixed(2)}`
+          p.id.startsWith('OV-') ? p.id : `${String(p.reference).trim().toLowerCase()}_${parseFloat(String(p.amount)).toFixed(2)}`
         ));
         
         const news = externalPayments.filter((p: PaymentRecord) => {
-          const key = `${String(p.reference).trim().toLowerCase()}_${parseFloat(String(p.amount)).toFixed(2)}`;
-          const isNew = !existingKeys.has(key);
-          if (isNew) console.log("Nuevo pago detectado:", key);
+          const keyByRef = `${String(p.reference).trim().toLowerCase()}_${parseFloat(String(p.amount)).toFixed(2)}`;
+          const isNew = !existingKeys.has(p.id) && !existingKeys.has(keyByRef);
           return isNew;
         });
         
@@ -82,7 +80,7 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, onVerify
       }
     } catch (e) {
       console.error("Error sincronizando Oficina Virtual:", e);
-      alert("❌ ERROR DE RED: No se pudo conectar con Google Sheets.");
+      alert("❌ ERROR DE RED: No se pudo conectar con la base de datos.");
     } finally {
       setIsSyncingExternal(false);
     }
@@ -128,7 +126,7 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, onVerify
           </div>
           <div>
             <h3 className="text-white font-black text-2xl tracking-tighter">Sincronización Cloud</h3>
-            <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] mt-1">OFICINA VIRTUAL (PNIQ V-2.1)</p>
+            <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] mt-1">PESTAÑA: OFICINAVIRTUAL</p>
           </div>
         </div>
         <button 
@@ -141,7 +139,7 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, onVerify
           }`}
         >
           <RefreshCcw size={18} className={isSyncingExternal ? 'animate-spin' : ''} />
-          {isSyncingExternal ? 'ESCANEO EN CURSO...' : 'IMPORTAR DESDE GOOGLE SHEETS'}
+          {isSyncingExternal ? 'ESCANEANDO TABLA...' : 'IMPORTAR DE OFICINA VIRTUAL'}
         </button>
       </div>
 
@@ -225,6 +223,9 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, onVerify
                               {rep ? `${rep.firstName} ${rep.lastName}` : 'ID NO IDENTIFICADO'}
                             </span>
                             <span className="text-[10px] font-mono font-bold text-slate-400 mt-0.5">C.I. {p.cedulaRepresentative}</span>
+                            {p.id.startsWith('OV-') && (
+                              <span className="text-[8px] bg-blue-50 text-blue-500 px-1 py-0.5 rounded-md w-fit mt-1 font-black">ORIGEN: OFICINA VIRTUAL</span>
+                            )}
                           </div>
                         </td>
                         <td className="px-8 py-6">

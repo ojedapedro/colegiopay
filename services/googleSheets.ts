@@ -1,12 +1,12 @@
-
 import { User, Representative, PaymentRecord, LevelFees, PaymentStatus, Level, PaymentMethod } from '../types';
 
-const SISTEM_COL_SHEET_ID = '13lZSsC2YeTv6hPd1ktvOsexcIj9CA2wcpbxU-gvdVLo';
-const VIRTUAL_OFFICE_SHEET_ID = '17slRl7f9AKQgCEGF5jDLMGfmOc-unp1gXSRpYFGX1Eg';
+/**
+ * ID de la base de datos principal extraído de la captura de pantalla del usuario.
+ */
+const SISTEM_COL_SHEET_ID = '12D-vuHFdm9ZEowT0cLR8QWYhzYgp40grsdmVHjfqiw';
 
 /** 
- * URL Corregida según captura de pantalla del usuario.
- * Se han verificado los caracteres I (i mayúscula) y l (L minúscula).
+ * URL del Apps Script (Puente de conexión).
  */
 const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxNBy31uyMDtIQ0BhfMHISH4SyTA1w9_dtFO7DdfCFgnkniSXKlEPIB8AEFyQo7aoTvFw/exec';
 
@@ -40,9 +40,8 @@ export const sheetService = {
   async safeParseJson(response: Response) {
     try {
       const text = await response.text();
-      // Si el script no devuelve nada (error de la foto), text estará vacío o será un mensaje de Google.
       if (!text || text.includes('<!DOCTYPE') || text.length < 5) {
-        console.warn('El script de Google no devolvió datos válidos (Posible llamada sin parámetros).');
+        console.warn('El script de Google no devolvió datos válidos.');
         return null;
       }
       return JSON.parse(text);
@@ -71,7 +70,8 @@ export const sheetService = {
     if (!this.isValidConfig()) return [];
     const url = this.getScriptUrl();
     try {
-      const targetUrl = `${url}?action=get_external_payments&sheetId=${VIRTUAL_OFFICE_SHEET_ID}&sheetName=Pagos&t=${Date.now()}`;
+      // Cambio: Ahora busca en la pestaña "OficinaVirtual" de la MISMA base de datos principal
+      const targetUrl = `${url}?action=get_external_payments&sheetId=${SISTEM_COL_SHEET_ID}&sheetName=OficinaVirtual&t=${Date.now()}`;
       const response = await fetch(targetUrl, { method: 'GET', mode: 'cors', redirect: 'follow' });
       const result = await this.safeParseJson(response);
       
@@ -82,9 +82,10 @@ export const sheetService = {
         const amount = parseFloat(String(getFlexValue(p, 'amount') || getFlexValue(p, 'monto') || 0).replace(',', '.'));
         const ref = String(getFlexValue(p, 'reference') || getFlexValue(p, 'referencia') || '0');
         const cedula = cleanId(getFlexValue(p, 'cedulaRepresentative') || getFlexValue(p, 'cedula') || getFlexValue(p, 'representante'));
+        const idFromSheet = String(getFlexValue(p, 'id') || '');
         
         return {
-          id: `OV-${ref}-${cedula}-${index}`, 
+          id: idFromSheet || `OV-${ref}-${cedula}-${index}`, 
           timestamp: String(getFlexValue(p, 'timestamp') || new Date().toISOString()),
           paymentDate: String(getFlexValue(p, 'paymentDate') || getFlexValue(p, 'fecha') || new Date().toISOString().split('T')[0]),
           cedulaRepresentative: cedula,
