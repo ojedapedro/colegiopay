@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef } from 'react';
 import { 
   Representative, 
@@ -38,7 +37,6 @@ const PaymentModule: React.FC<Props> = ({ representatives, payments, fees, onPay
   const handleSearch = () => {
     if (filteredRep) {
       setSelectedRep(filteredRep);
-      // Calcular saldo pendiente acumulativo
       const totalAccrued = filteredRep.totalAccruedDebt || 0;
       const verifiedPaid = payments
         .filter(p => p.cedulaRepresentative === filteredRep.cedula && p.status === PaymentStatus.VERIFICADO)
@@ -87,7 +85,7 @@ const PaymentModule: React.FC<Props> = ({ representatives, payments, fees, onPay
 
     const payAmount = parseFloat(amount);
     const newRecord: PaymentRecord = {
-      id: `PAY-${Date.now()}`,
+      id: `PAY-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       timestamp: new Date().toISOString(),
       paymentDate: new Date().toISOString().split('T')[0],
       cedulaRepresentative: selectedRep.cedula,
@@ -105,7 +103,6 @@ const PaymentModule: React.FC<Props> = ({ representatives, payments, fees, onPay
     onPay(newRecord);
     alert(`Pago registrado satisfactoriamente. ${isElectronic ? 'Pendiente por verificación.' : 'Verificado automáticamente.'}`);
     
-    // Reset
     setAmount('');
     setReference('');
     setObs('');
@@ -157,12 +154,6 @@ const PaymentModule: React.FC<Props> = ({ representatives, payments, fees, onPay
                   <p className="text-[10px] font-bold text-slate-400 uppercase">Matrícula Escolar</p>
                   <p className="font-mono text-blue-600 font-bold bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-100 break-all">{selectedRep.matricula}</p>
                 </div>
-                {selectedRep.phone && (
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Teléfono de Contacto</p>
-                    <p className="font-bold text-slate-700">{selectedRep.phone}</p>
-                  </div>
-                )}
               </div>
 
               <div className="mt-10">
@@ -188,9 +179,6 @@ const PaymentModule: React.FC<Props> = ({ representatives, payments, fees, onPay
               </div>
               <p className="text-[10px] font-black opacity-80 uppercase tracking-widest">Saldo Deudor Acumulado</p>
               <p className="text-5xl font-black mt-3 tracking-tighter">${pendingAmount.toFixed(2)}</p>
-              <div className="mt-6 flex items-center gap-2 text-[10px] font-bold bg-emerald-700/50 p-3 rounded-xl border border-emerald-500/30 uppercase tracking-tighter">
-                Actualizado al último devengo mensual.
-              </div>
             </div>
           </div>
 
@@ -295,9 +283,6 @@ const PaymentModule: React.FC<Props> = ({ representatives, payments, fees, onPay
             {ICONS.Search}
           </div>
           <p className="text-xl font-black text-slate-800">Módulo de Cobranza en Espera</p>
-          <p className="text-sm max-w-sm mt-3 font-medium text-slate-500">
-            Busque un representante para ver su deuda acumulada y registrar abonos.
-          </p>
         </div>
       )}
     </div>

@@ -8,7 +8,6 @@ import {
   X, 
   ShieldCheck, 
   ShieldAlert, 
-  Filter, 
   RefreshCcw, 
   Globe,
   FileDown
@@ -28,28 +27,30 @@ interface Props {
 const VerificationList: React.FC<Props> = ({ payments, representatives, onVerify, onImportExternal }) => {
   const [isSyncingExternal, setIsSyncingExternal] = useState(false);
   const [activeTab, setActiveTab] = useState<'pending' | 'rejected'>('pending');
-  const [filterDate, setFilterDate] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
   const list = useMemo(() => {
     let filtered = payments.filter(p => 
       activeTab === 'pending' ? p.status === PaymentStatus.PENDIENTE : p.status === PaymentStatus.RECHAZADO
     );
-    if (filterDate) filtered = filtered.filter(p => p.paymentDate === filterDate);
+    
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter(p => 
         p.cedulaRepresentative.includes(q) || 
-        p.reference.toLowerCase().includes(q)
+        p.reference.toLowerCase().includes(q) ||
+        p.id.toLowerCase().includes(q)
       );
     }
-    // Priorizar los registros de Oficina Virtual (prefijo OV-)
+
+    // Ordenar: Primero los de Oficina Virtual (OV-), luego manuales (PAY-)
     return filtered.sort((a, b) => {
       const aIsOV = a.id.startsWith('OV-') ? 1 : 0;
       const bIsOV = b.id.startsWith('OV-') ? 1 : 0;
-      return bIsOV - aIsOV;
+      if (aIsOV !== bIsOV) return bIsOV - aIsOV;
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
     });
-  }, [payments, activeTab, filterDate, searchQuery]);
+  }, [payments, activeTab, searchQuery]);
 
   const handleSyncVirtualOffice = async () => {
     if (!sheetService.isValidConfig()) {
@@ -62,27 +63,26 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, onVerify
       const externalPayments = await sheetService.fetchVirtualOfficePayments();
       
       if (externalPayments && externalPayments.length > 0 && onImportExternal) {
-        // Filtrar registros que ya existen en el sistema local
+        // Filtrar registros que no existan localmente por ID
         const existingIds = new Set(payments.map(p => p.id));
-        const existingRefs = new Set(payments.map(p => `${p.reference}_${p.amount}`));
         
         const news = externalPayments.filter((p: PaymentRecord) => {
-          const refKey = `${p.reference}_${p.amount}`;
-          return !existingIds.has(p.id) && !existingRefs.has(refKey);
+          // Solo importar si el registro no existe y además su estatus es Pendiente
+          return !existingIds.has(p.id) && p.status === PaymentStatus.PENDIENTE;
         });
         
         if (news.length > 0) {
           onImportExternal(news);
-          alert(`✅ Sincronización Exitosa: Se han importado ${news.length} nuevos registros de la Oficina Virtual.`);
+          alert(`✅ OFICINA VIRTUAL: Se han importado ${news.length} nuevos registros pendientes.`);
         } else {
-          alert("ℹ️ Oficina Virtual: No hay registros nuevos para importar.");
+          alert("ℹ️ No hay registros nuevos pendientes en la Oficina Virtual.");
         }
-      } else if (!externalPayments || externalPayments.length === 0) {
+      } else {
         alert("ℹ️ No se encontraron registros en la pestaña 'OficinaVirtual'.");
       }
     } catch (e) {
       console.error("Error al sincronizar Oficina Virtual:", e);
-      alert("❌ Error de Conexión: No se pudo leer la hoja de Google Sheets.");
+      alert("❌ Error de Conexión con Google Sheets.");
     } finally {
       setIsSyncingExternal(false);
     }
@@ -90,10 +90,9 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, onVerify
 
   const getRepresentativeInfo = (cedula: string) => {
     const cleanSearch = String(cedula).replace(/[VEve\-\.\s]/g, '').trim();
-    const rep = representatives.find(r => 
+    return representatives.find(r => 
       String(r.cedula).replace(/[VEve\-\.\s]/g, '').trim() === cleanSearch
-    );
-    return rep || null;
+    ) || null;
   };
 
   const getMethodInfo = (method: string) => {
@@ -106,15 +105,14 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, onVerify
 
   return (
     <div className="space-y-6 animate-fadeIn pb-20">
-      {/* Panel de Sincronización Superior */}
       <div className="bg-[#0f172a] p-8 rounded-[2.5rem] shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 border border-slate-800">
         <div className="flex items-center gap-6">
           <div className="w-16 h-16 bg-blue-500/10 rounded-2xl border border-blue-500/20 flex items-center justify-center text-blue-400">
             <Globe size={32} />
           </div>
           <div>
-            <h3 className="text-white font-black text-2xl tracking-tighter">Oficina Virtual</h3>
-            <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] mt-1">Conexión con SistColPay Google Sheets</p>
+            <h3 className="text-white font-black text-2xl tracking-tighter">Verificación Centralizada</h3>
+            <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] mt-1">Sincronización de Pagos (PAY & OV)</p>
           </div>
         </div>
         <button 
@@ -127,7 +125,7 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, onVerify
           }`}
         >
           <RefreshCcw size={18} className={isSyncingExternal ? 'animate-spin' : ''} />
-          {isSyncingExternal ? 'ESCANEANDO REGISTROS...' : 'SINCRONIZAR OFICINA VIRTUAL'}
+          {isSyncingExternal ? 'BUSCANDO REGISTROS...' : 'IMPORTAR OFICINA VIRTUAL'}
         </button>
       </div>
 
@@ -150,13 +148,13 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, onVerify
             </div>
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Buscar por Datos</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Filtro de Búsqueda</label>
                 <input 
                   type="text" 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold outline-none focus:border-blue-500" 
-                  placeholder="C.I. o Referencia..."
+                  placeholder="ID, C.I. o Referencia..."
                 />
               </div>
             </div>
@@ -169,12 +167,9 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, onVerify
               <div className={`p-4 rounded-2xl ${activeTab === 'pending' ? 'bg-amber-100 text-amber-600' : 'bg-rose-100 text-rose-600'}`}>
                 {activeTab === 'pending' ? <ShieldAlert size={24} /> : <X size={24} />}
               </div>
-              <div>
-                <h3 className="text-xl font-black text-slate-800 tracking-tighter uppercase">
-                  {activeTab === 'pending' ? 'Bandeja de Pagos' : 'Pagos Desestimados'}
-                </h3>
-                <p className="text-[10px] text-slate-400 font-bold uppercase">Gestión de Cobranza Institucional</p>
-              </div>
+              <h3 className="text-xl font-black text-slate-800 tracking-tighter uppercase">
+                {activeTab === 'pending' ? 'Bandeja de Pendientes' : 'Historial de Rechazos'}
+              </h3>
             </div>
           </div>
 
@@ -184,14 +179,14 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, onVerify
                 <div className="w-20 h-20 bg-slate-50 text-slate-200 rounded-full flex items-center justify-center mb-6">
                   <ShieldCheck size={40} />
                 </div>
-                <p className="text-lg font-black text-slate-800 uppercase tracking-tighter">Sin registros pendientes</p>
-                <p className="text-xs mt-1 text-slate-400 font-bold uppercase tracking-widest">Sincronice la Oficina Virtual si espera pagos.</p>
+                <p className="text-lg font-black text-slate-800 uppercase tracking-tighter">Sin registros</p>
+                <p className="text-xs mt-1 text-slate-400 font-bold uppercase tracking-widest">Todos los pagos han sido procesados.</p>
               </div>
             ) : (
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-slate-50 text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] border-b border-slate-100">
-                    <th className="px-8 py-6">Representante</th>
+                    <th className="px-8 py-6">ID / Representante</th>
                     <th className="px-8 py-6">Operación</th>
                     <th className="px-8 py-6 text-center">Monto</th>
                     <th className="px-8 py-6 text-right">Acciones</th>
@@ -203,18 +198,14 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, onVerify
                     const rep = getRepresentativeInfo(p.cedulaRepresentative);
                     const isOV = p.id.startsWith('OV-');
                     return (
-                      <tr key={p.id} className={`hover:bg-slate-50 transition-all ${isOV ? 'bg-blue-50/20' : ''}`}>
+                      <tr key={p.id} className={`hover:bg-slate-50 transition-all ${isOV ? 'bg-blue-50/10' : ''}`}>
                         <td className="px-8 py-6">
                           <div className="flex flex-col">
+                            <span className="text-[9px] font-black font-mono text-blue-600 mb-1">{p.id}</span>
                             <span className="text-sm font-black text-slate-800 uppercase tracking-tight">
-                              {rep ? `${rep.firstName} ${rep.lastName}` : 'N/A - CARGA PENDIENTE'}
+                              {rep ? `${rep.firstName} ${rep.lastName}` : 'ID NO REGISTRADO'}
                             </span>
                             <span className="text-[10px] font-mono font-bold text-slate-400 mt-0.5">C.I. {p.cedulaRepresentative}</span>
-                            {isOV && (
-                              <div className="mt-2 flex items-center gap-1.5 px-2 py-0.5 bg-blue-600 text-white rounded text-[8px] font-black uppercase w-fit tracking-tighter">
-                                <Globe size={10} /> Oficina Virtual
-                              </div>
-                            )}
                           </div>
                         </td>
                         <td className="px-8 py-6">
@@ -242,7 +233,7 @@ const VerificationList: React.FC<Props> = ({ payments, representatives, onVerify
                                 </button>
                                 <button 
                                   onClick={() => {
-                                    const reason = prompt("Indique el motivo del rechazo:");
+                                    const reason = prompt("Indique motivo del rechazo:");
                                     if (reason) onVerify(p.id, PaymentStatus.RECHAZADO);
                                   }}
                                   className="p-3 bg-white text-rose-500 border border-rose-100 rounded-xl hover:bg-rose-50 transition-all active:scale-90"

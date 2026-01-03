@@ -70,7 +70,6 @@ export const sheetService = {
     if (!this.isValidConfig()) return [];
     const url = this.getScriptUrl();
     try {
-      // Importante: sheetName debe ser "OficinaVirtual" tal cual aparece en el Excel del usuario
       const targetUrl = `${url}?action=get_external_payments&sheetId=${SISTEM_COL_SHEET_ID}&sheetName=OficinaVirtual&t=${Date.now()}`;
       const response = await fetch(targetUrl, { method: 'GET', mode: 'cors', redirect: 'follow' });
       const result = await this.safeParseJson(response);
@@ -84,8 +83,14 @@ export const sheetService = {
         const cedula = cleanId(getFlexValue(p, 'cedulaRepresentative') || getFlexValue(p, 'cedula') || getFlexValue(p, 'representante'));
         const idFromSheet = String(getFlexValue(p, 'id') || '');
         
+        // Asegurar prefijo OV- si no lo tiene
+        let finalId = idFromSheet;
+        if (!finalId.startsWith('OV-')) {
+          finalId = `OV-${index}-${ref}`;
+        }
+
         return {
-          id: idFromSheet || `OV-${ref}-${cedula}-${index}`, 
+          id: finalId, 
           timestamp: String(getFlexValue(p, 'timestamp') || new Date().toISOString()),
           paymentDate: String(getFlexValue(p, 'paymentDate') || getFlexValue(p, 'fecha') || new Date().toISOString().split('T')[0]),
           cedulaRepresentative: cedula,
@@ -95,7 +100,7 @@ export const sheetService = {
           reference: ref,
           amount: isNaN(amount) ? 0 : amount,
           observations: String(getFlexValue(p, 'observations') || getFlexValue(p, 'observaciones') || '[Oficina Virtual]'),
-          status: PaymentStatus.PENDIENTE,
+          status: (getFlexValue(p, 'status') || PaymentStatus.PENDIENTE) as PaymentStatus,
           type: (String(getFlexValue(p, 'type') || '').toUpperCase().includes('ABONO') ? 'ABONO' : 'TOTAL') as 'ABONO' | 'TOTAL',
           pendingBalance: parseFloat(String(getFlexValue(p, 'pendingBalance') || 0))
         };
