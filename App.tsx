@@ -268,7 +268,7 @@ const App: React.FC = () => {
           {activeTab === 'verification' && <VerificationList payments={payments} representatives={representatives} fees={fees} onVerify={(id, status) => updateData(users, representatives, payments.map(p => p.id === id ? {...p, status} : p), fees)} onImportExternal={(news) => updateData(users, representatives, [...news, ...payments], fees)} />}
           {activeTab === 'reports' && <ReportsModule payments={payments} representatives={representatives} />}
           {activeTab === 'ledger' && <LedgerModule representatives={representatives} payments={payments} fees={fees} />}
-          {activeTab === 'users' && <UserManagement users={users} onUpdateRole={(id, role) => updateData(users.map(u => u.cedula === id ? {...u, role} : u), representatives, payments, fees)} onDeleteUser={(id) => updateData(users.filter(u => u.cedula !== id), representatives, payments, fees)} />}
+          {activeTab === 'users' && <UserManagement users={users} onAddUser={(u) => updateData([...users, u], representatives, payments, fees)} onUpdateRole={(id, role) => updateData(users.map(u => u.cedula === id ? {...u, role} : u), representatives, payments, fees)} onDeleteUser={(id) => updateData(users.filter(u => u.cedula !== id), representatives, payments, fees)} />}
           {activeTab === 'settings' && <SettingsModule fees={fees} onUpdateFees={(f) => updateData(users, representatives, payments, f)} />}
         </div>
       </main>
