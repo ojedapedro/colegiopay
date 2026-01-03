@@ -1,4 +1,3 @@
-
 export enum Level {
   MATERNAL = 'Maternal',
   PRE_ESCOLAR = 'Pre-escolar',
@@ -7,14 +6,16 @@ export enum Level {
 }
 
 export enum UserRole {
-  ADMIN = 'Administrador',
-  BASIC = 'Usuario Básico'
+  ADMINISTRADOR = 'Administrador',
+  CAJERO = 'Cajero',
+  SUPERVISOR = 'Supervisor'
 }
 
 export interface User {
   cedula: string;
   fullName: string;
   role: UserRole;
+  password: string; // Nueva clave de 6 dígitos
   createdAt: string;
 }
 
@@ -58,8 +59,8 @@ export interface Representative {
   phone: string;
   matricula: string;
   students: Student[];
-  totalAccruedDebt: number; // Suma histórica de mensualidades cargadas
-  lastAccrualMonth?: string; // Formato "YYYY-MM" para evitar cobros duplicados
+  totalAccruedDebt: number;
+  lastAccrualMonth?: string;
 }
 
 export interface PaymentRecord {

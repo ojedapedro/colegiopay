@@ -15,7 +15,6 @@ import { ChevronDown, ChevronUp, ShieldCheck, LayoutGrid, ClipboardList, Wallet,
 import { initialRepresentatives, initialPayments, initialUsers } from './services/mockData.ts';
 import { sheetService } from './services/googleSheets.ts';
 
-// UI Components con extensiones explícitas
 import Dashboard from './components/Dashboard.tsx';
 import StudentRegistration from './components/StudentRegistration.tsx';
 import PaymentModule from './components/PaymentModule.tsx';
@@ -102,14 +101,10 @@ const App: React.FC = () => {
         let localPays = initialPayments;
         let localFees = DEFAULT_LEVEL_FEES;
 
-        try {
-          if (savedUsers) localUsers = JSON.parse(savedUsers);
-          if (savedReps) localReps = JSON.parse(savedReps);
-          if (savedPays) localPays = JSON.parse(savedPays);
-          if (savedFees) localFees = JSON.parse(savedFees);
-        } catch (e) {
-          console.warn("Error parseando localStorage, usando datos iniciales.");
-        }
+        if (savedUsers) localUsers = JSON.parse(savedUsers);
+        if (savedReps) localReps = JSON.parse(savedReps);
+        if (savedPays) localPays = JSON.parse(savedPays);
+        if (savedFees) localFees = JSON.parse(savedFees);
 
         setUsers(localUsers);
         setRepresentatives(localReps);
@@ -118,17 +113,13 @@ const App: React.FC = () => {
 
         const savedSession = localStorage.getItem('school_session');
         if (savedSession) {
-          try {
-            const parsed = JSON.parse(savedSession);
-            const foundUser = localUsers.find((u: User) => u.cedula === parsed.cedula);
-            if (foundUser) {
-              setCurrentUser(foundUser);
-            } else {
-              const foundRep = localReps.find((r: Representative) => r.cedula === parsed.cedula);
-              if (foundRep) setCurrentRep(foundRep);
-            }
-          } catch (e) {
-            localStorage.removeItem('school_session');
+          const parsed = JSON.parse(savedSession);
+          const foundUser = localUsers.find((u: User) => u.cedula === parsed.cedula);
+          if (foundUser) {
+            setCurrentUser(foundUser);
+          } else {
+            const foundRep = localReps.find((r: Representative) => r.cedula === parsed.cedula);
+            if (foundRep) setCurrentRep(foundRep);
           }
         }
 
@@ -143,7 +134,7 @@ const App: React.FC = () => {
           }
         }
       } catch (err) {
-        console.error("Error crítico durante la carga de datos:", err);
+        console.error("Error durante la carga:", err);
       } finally {
         setIsLoading(false);
       }
@@ -158,21 +149,9 @@ const App: React.FC = () => {
     setActiveTab('dashboard');
   };
 
-  const handleLogin = (id: string) => {
-    const user = users.find(u => u.cedula === id);
-    if (user) {
-      setCurrentUser(user);
-      localStorage.setItem('school_session', JSON.stringify({ cedula: user.cedula }));
-      return;
-    }
-    
-    const rep = representatives.find(r => r.cedula === id);
-    if (rep) {
-      setCurrentRep(rep);
-      localStorage.setItem('school_session', JSON.stringify({ cedula: rep.cedula }));
-    } else {
-      alert("Identificación no reconocida en el sistema.");
-    }
+  const handleLogin = (user: User) => {
+    setCurrentUser(user);
+    localStorage.setItem('school_session', JSON.stringify({ cedula: user.cedula }));
   };
 
   if (isLoading) {
@@ -180,7 +159,7 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center text-white">
         <img src={INSTITUTION_LOGO} alt="Logo" className="w-24 h-24 mb-6 animate-pulse" />
         <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="mt-4 text-xs font-black uppercase tracking-widest opacity-50">Cargando Sistema...</p>
+        <p className="mt-4 text-xs font-black uppercase tracking-widest opacity-50">Sincronizando Sistemas...</p>
       </div>
     );
   }
@@ -201,20 +180,24 @@ const App: React.FC = () => {
     return (
       <Auth 
         users={users} 
-        onLogin={(u) => handleLogin(u.cedula)} 
+        onLogin={handleLogin} 
         onRegister={(u) => updateData([...users, u], representatives, payments, fees)} 
       />
     );
   }
 
+  // Permisos según Rol
+  const canManageUsers = currentUser.role === UserRole.ADMINISTRADOR;
+  const canConfig = currentUser.role === UserRole.ADMINISTRADOR || currentUser.role === UserRole.SUPERVISOR;
+
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-[#f1f5f9]">
-      <aside className="w-full md:w-72 bg-[#0f172a] text-white flex flex-col shadow-xl z-20">
+    <div className="flex flex-col md:flex-row min-h-screen bg-[#f8fafc]">
+      <aside className="w-full md:w-72 bg-[#0f172a] text-white flex flex-col shadow-2xl z-20">
         <div className="p-8 flex items-center gap-4 border-b border-slate-800">
           <img src={INSTITUTION_LOGO} alt="Logo" className="w-10 h-10 object-contain bg-white rounded-lg p-1" />
           <div>
             <h1 className="text-xl font-black uppercase tracking-tighter">Colegio<span className="text-blue-500">Pay</span></h1>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Admin V2.1</p>
+            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Plataforma V3.0</p>
           </div>
         </div>
 
@@ -226,27 +209,27 @@ const App: React.FC = () => {
           <NavItem active={activeTab === 'ledger'} onClick={() => setActiveTab('ledger')} icon={<ClipboardList size={20} />} label="Libro Maestro" />
           <NavItem active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} icon={<FileBarChart size={20} />} label="Reportes" />
           
-          {currentUser.role === UserRole.ADMIN && (
+          {(canManageUsers || canConfig) && (
             <div className="pt-6 mt-6 border-t border-slate-800 space-y-2">
               <p className="px-4 text-[10px] font-black text-slate-600 uppercase tracking-widest mb-4">Administración</p>
-              <NavItem active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={<Users size={20} />} label="Personal" />
-              <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<Settings size={20} />} label="Parámetros" />
+              {canManageUsers && <NavItem active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={<Users size={20} />} label="Personal" />}
+              {canConfig && <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<Settings size={20} />} label="Parámetros" />}
             </div>
           )}
         </nav>
 
         <div className="p-6 bg-slate-900/50 border-t border-slate-800">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-black">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-black shadow-lg shadow-blue-500/20">
               {currentUser.fullName[0]}
             </div>
             <div className="flex-1 overflow-hidden">
-              <p className="text-xs font-black truncate">{currentUser.fullName}</p>
-              <p className="text-[10px] text-slate-500 font-bold uppercase truncate">{currentUser.role}</p>
+              <p className="text-[11px] font-black truncate text-white uppercase tracking-tight">{currentUser.fullName}</p>
+              <p className="text-[9px] text-blue-400 font-black uppercase tracking-widest truncate">{currentUser.role}</p>
             </div>
           </div>
-          <button onClick={handleLogout} className="w-full p-3 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white rounded-xl transition-all flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest">
-            <RefreshCcw size={16} /> Cerrar Sesión
+          <button onClick={handleLogout} className="w-full p-3.5 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white rounded-xl transition-all flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest">
+            <RefreshCcw size={14} /> Finalizar Turno
           </button>
         </div>
       </aside>
@@ -255,24 +238,24 @@ const App: React.FC = () => {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
           <div>
             <h2 className="text-3xl font-black text-slate-800 tracking-tighter uppercase">
-              {activeTab === 'dashboard' && "Estadísticas Generales"}
-              {activeTab === 'students' && "Registro de Alumnos"}
-              {activeTab === 'payments' && "Módulo de Recaudación"}
-              {activeTab === 'verification' && "Validación de Pagos"}
-              {activeTab === 'reports' && "Centro de Reportes"}
-              {activeTab === 'users' && "Control de Personal"}
-              {activeTab === 'settings' && "Configuración Sistema"}
+              {activeTab === 'dashboard' && "Analítica Global"}
+              {activeTab === 'students' && "Nuevas Inscripciones"}
+              {activeTab === 'payments' && "Módulo de Tesorería"}
+              {activeTab === 'verification' && "Conciliación Bancaria"}
+              {activeTab === 'reports' && "Auditoría Escolar"}
+              {activeTab === 'users' && "Control de Acceso"}
+              {activeTab === 'settings' && "Variables del Sistema"}
               {activeTab === 'ledger' && "Estados de Cuenta"}
             </h2>
-            <p className="text-sm text-slate-500 font-medium">Gestión administrativa Colegio San Francisco</p>
+            <p className="text-sm text-slate-400 font-bold uppercase tracking-widest mt-1">Gestión administrativa Colegio San Francisco</p>
           </div>
 
           <div className="flex items-center gap-3">
-             <div className={`flex items-center gap-2 px-4 py-2 rounded-full border text-[10px] font-black uppercase tracking-widest ${cloudStatus === 'online' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+             <div className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl border text-[10px] font-black uppercase tracking-widest ${cloudStatus === 'online' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
                 <div className={`w-2 h-2 rounded-full ${cloudStatus === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></div>
-                {isSyncing ? 'Sincronizando...' : `Cloud: ${cloudStatus}`}
+                {isSyncing ? 'Sincronizando...' : `Nube: ${cloudStatus}`}
              </div>
-             <button onClick={fetchCloudData} className="p-2 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-blue-500 transition-colors">
+             <button onClick={fetchCloudData} className="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-blue-500 transition-all active:scale-95 shadow-sm">
                <RefreshCcw size={18} className={isSyncing ? 'animate-spin' : ''} />
              </button>
           </div>
@@ -294,10 +277,10 @@ const App: React.FC = () => {
 };
 
 const NavItem = ({ active, onClick, icon, label, badge }: { active: boolean, onClick: () => void, icon: any, label: string, badge?: number }) => (
-  <button onClick={onClick} className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all group ${active ? 'bg-blue-600 text-white shadow-xl shadow-blue-900/40 font-black' : 'text-slate-400 hover:bg-slate-800/50 font-bold'}`}>
+  <button onClick={onClick} className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all group ${active ? 'bg-blue-600 text-white shadow-xl shadow-blue-500/20 font-black' : 'text-slate-400 hover:bg-slate-800/50 font-bold'}`}>
     <div className="flex items-center gap-4">
       <span className={`${active ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`}>{icon}</span>
-      <span className="text-xs uppercase tracking-widest">{label}</span>
+      <span className="text-[10px] uppercase tracking-widest">{label}</span>
     </div>
     {badge ? <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black ${active ? 'bg-white text-blue-600' : 'bg-rose-500 text-white'}`}>{badge}</span> : null}
   </button>

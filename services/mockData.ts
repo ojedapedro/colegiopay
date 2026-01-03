@@ -1,17 +1,18 @@
-
 import { Representative, Level, Student, PaymentRecord, PaymentMethod, PaymentStatus, User, UserRole } from '../types';
 
 export const initialUsers: User[] = [
   {
     cedula: "10203040",
     fullName: "Admin Principal",
-    role: UserRole.ADMIN,
+    role: UserRole.ADMINISTRADOR,
+    password: "123456",
     createdAt: new Date().toISOString()
   },
   {
     cedula: "20304050",
     fullName: "Operador Caja",
-    role: UserRole.BASIC,
+    role: UserRole.CAJERO,
+    password: "123456",
     createdAt: new Date().toISOString()
   }
 ];
@@ -26,7 +27,9 @@ export const initialRepresentatives: Representative[] = [
     students: [
       { id: "S1", fullName: "Miguel Pérez", level: Level.PRIMARIA, section: "A" },
       { id: "S2", fullName: "Ana Pérez", level: Level.MATERNAL, section: "U" }
-    ]
+    ],
+    totalAccruedDebt: 130.00,
+    lastAccrualMonth: "2024-05"
   }
 ];
 
