@@ -5,7 +5,6 @@ import {
   PaymentRecord, 
   DEFAULT_LEVEL_FEES, 
   LevelFees,
-  PaymentMethod, 
   PaymentStatus, 
   User,
   UserRole
@@ -35,7 +34,11 @@ function NavItem({ active, onClick, icon, label, badge }: { active: boolean, onC
         <span className={`${active ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`}>{icon}</span>
         <span className="text-[10px] uppercase tracking-widest">{label}</span>
       </div>
-      {badge ? <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black ${active ? 'bg-white text-blue-600' : 'bg-rose-500 text-white'}`}>{badge}</span> : null}
+      {badge !== undefined && badge > 0 ? (
+        <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black ${active ? 'bg-white text-blue-600' : 'bg-rose-500 text-white'}`}>
+          {badge}
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -139,10 +142,6 @@ export default function App() {
           const cloudData = await sheetService.fetchAll();
           if (cloudData && !cloudData.error) {
             setCloudStatus('online');
-            if (cloudData.users) setUsers(cloudData.users);
-            if (cloudData.representatives) setRepresentatives(cloudData.representatives);
-            if (cloudData.payments) setPayments(cloudData.payments);
-            if (cloudData.fees) setFees(cloudData.fees);
           }
         }
       } catch (err) {

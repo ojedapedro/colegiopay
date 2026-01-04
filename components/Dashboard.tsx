@@ -1,9 +1,9 @@
 import React from 'react';
-import { Representative, PaymentRecord, PaymentStatus } from '../types';
+import { Representative, PaymentRecord, PaymentStatus, Level } from '../types';
 import { ICONS } from '../constants';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 
-interface Props {
+interface DashboardProps {
   representatives: Representative[];
   payments: PaymentRecord[];
 }
@@ -22,7 +22,7 @@ function StatCard({ title, value, icon, color }: { title: string; value: string;
   );
 }
 
-export default function Dashboard({ representatives, payments }: Props) {
+export default function Dashboard({ representatives, payments }: DashboardProps) {
   const verifiedPayments = payments.filter(p => p.status === PaymentStatus.VERIFICADO);
   const totalIncome = verifiedPayments.reduce((sum, p) => sum + p.amount, 0);
   const pendingIncome = payments.filter(p => p.status === PaymentStatus.PENDIENTE).reduce((sum, p) => sum + p.amount, 0);
@@ -30,10 +30,10 @@ export default function Dashboard({ representatives, payments }: Props) {
   const studentCount = representatives.reduce((sum, r) => sum + r.students.length, 0);
   
   const levelData = [
-    { name: 'Maternal', value: representatives.reduce((sum, r) => sum + r.students.filter(s => s.level === 'Maternal').length, 0) },
-    { name: 'Pre-Escolar', value: representatives.reduce((sum, r) => sum + r.students.filter(s => s.level === 'Pre-escolar').length, 0) },
-    { name: 'Primaria', value: representatives.reduce((sum, r) => sum + r.students.filter(s => s.level === 'Primaria').length, 0) },
-    { name: 'Secundaria', value: representatives.reduce((sum, r) => sum + r.students.filter(s => s.level === 'Secundaria').length, 0) },
+    { name: 'Maternal', value: representatives.reduce((sum, r) => sum + r.students.filter(s => s.level === Level.MATERNAL).length, 0) },
+    { name: 'Pre-Escolar', value: representatives.reduce((sum, r) => sum + r.students.filter(s => s.level === Level.PRE_ESCOLAR).length, 0) },
+    { name: 'Primaria', value: representatives.reduce((sum, r) => sum + r.students.filter(s => s.level === Level.PRIMARIA).length, 0) },
+    { name: 'Secundaria', value: representatives.reduce((sum, r) => sum + r.students.filter(s => s.level === Level.SECUNDARIA).length, 0) },
   ];
 
   const methodData = [
@@ -53,8 +53,8 @@ export default function Dashboard({ representatives, payments }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[450px]">
           <h3 className="text-lg font-bold text-slate-800 mb-6 uppercase tracking-tighter">Distribución por Nivel</h3>
-          <div className="flex-1 w-full" style={{ minHeight: '300px', width: '100%' }}>
-            <ResponsiveContainer width="100%" height="100%" minHeight={300}>
+          <div className="flex-1 w-full">
+            <ResponsiveContainer width="100%" height="100%">
               <BarChart data={levelData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} />
@@ -72,9 +72,9 @@ export default function Dashboard({ representatives, payments }: Props) {
 
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[450px]">
           <h3 className="text-lg font-bold text-slate-800 mb-6 uppercase tracking-tighter">Métodos de Pago (Verificados)</h3>
-          <div className="flex-1 flex flex-col md:flex-row items-center w-full" style={{ minHeight: '300px' }}>
+          <div className="flex-1 flex flex-col md:flex-row items-center w-full">
             <div className="flex-1 w-full h-full">
-              <ResponsiveContainer width="100%" height="100%" minHeight={280}>
+              <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={methodData}
