@@ -8,22 +8,22 @@ import {
   PaymentStatus, 
   User,
   UserRole
-} from './types.ts';
-import { ICONS } from './constants.tsx';
+} from './types';
+import { ICONS } from './constants';
 import { ShieldCheck, LayoutGrid, ClipboardList, Wallet, FileBarChart, Settings, Users, UserPlus, RefreshCcw } from 'lucide-react';
-import { initialRepresentatives, initialPayments, initialUsers } from './services/mockData.ts';
-import { sheetService } from './services/googleSheets.ts';
+import { initialRepresentatives, initialPayments, initialUsers } from './services/mockData';
+import { sheetService } from './services/googleSheets';
 
-import Dashboard from './components/Dashboard.tsx';
-import StudentRegistration from './components/StudentRegistration.tsx';
-import PaymentModule from './components/PaymentModule.tsx';
-import VerificationList from './components/VerificationList.tsx';
-import ReportsModule from './components/ReportsModule.tsx';
-import Auth from './components/Auth.tsx';
-import UserManagement from './components/UserManagement.tsx';
-import SettingsModule from './components/SettingsModule.tsx';
-import LedgerModule from './components/LedgerModule.tsx';
-import RepresentativePortal from './components/RepresentativePortal.tsx';
+import Dashboard from './components/Dashboard';
+import StudentRegistration from './components/StudentRegistration';
+import PaymentModule from './components/PaymentModule';
+import VerificationList from './components/VerificationList';
+import ReportsModule from './components/ReportsModule';
+import Auth from './components/Auth';
+import UserManagement from './components/UserManagement';
+import SettingsModule from './components/SettingsModule';
+import LedgerModule from './components/LedgerModule';
+import RepresentativePortal from './components/RepresentativePortal';
 
 const INSTITUTION_LOGO = "https://i.ibb.co/FbHJbvVT/images.png";
 
