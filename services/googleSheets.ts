@@ -41,7 +41,6 @@ export const sheetService = {
     try {
       const text = await response.text();
       if (!text || text.includes('<!DOCTYPE') || text.length < 5) {
-        console.warn('El script de Google no devolvió datos válidos.');
         return null;
       }
       return JSON.parse(text);
@@ -50,6 +49,9 @@ export const sheetService = {
     }
   },
 
+  /**
+   * Obtiene todos los datos maestros de la hoja SistColPay
+   */
   async fetchAll() {
     if (!this.isValidConfig()) return null;
     const url = this.getScriptUrl();
@@ -66,10 +68,14 @@ export const sheetService = {
     }
   },
 
+  /**
+   * Sincronización específica para pagos electrónicos de Oficina Virtual y Pagos Administrativos
+   */
   async fetchVirtualOfficePayments() {
     if (!this.isValidConfig()) return [];
     const url = this.getScriptUrl();
     try {
+      // Se solicitan los datos de la pestaña "OficinaVirtual"
       const targetUrl = `${url}?action=get_external_payments&sheetId=${SISTEM_COL_SHEET_ID}&sheetName=OficinaVirtual&t=${Date.now()}`;
       const response = await fetch(targetUrl, { method: 'GET', mode: 'cors', redirect: 'follow' });
       const result = await this.safeParseJson(response);
@@ -83,7 +89,7 @@ export const sheetService = {
         const cedula = cleanId(getFlexValue(p, 'cedulaRepresentative') || getFlexValue(p, 'cedula') || getFlexValue(p, 'representante'));
         const idFromSheet = String(getFlexValue(p, 'id') || '');
         
-        // Asegurar prefijo OV- si no lo tiene
+        // Mantener integridad de IDs OV-
         let finalId = idFromSheet;
         if (!finalId.startsWith('OV-')) {
           finalId = `OV-${index}-${ref}`;
