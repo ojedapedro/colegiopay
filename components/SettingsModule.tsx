@@ -1,9 +1,7 @@
-
 import React, { useState } from 'react';
 import { Level, LevelFees } from '../types';
-import { ICONS } from '../constants';
 import { sheetService } from '../services/googleSheets';
-import { Link, RefreshCcw, ShieldCheck, AlertCircle, Trash2 } from 'lucide-react';
+import { Link, RefreshCcw, ShieldCheck, AlertCircle, Trash2, Search, CreditCard } from 'lucide-react';
 
 interface Props {
   fees: LevelFees;
@@ -20,7 +18,7 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
   };
 
   const handleRestoreDefault = () => {
-    const defaultUrl = 'https://script.google.com/macros/s/AKfycbnBy31uyMDtIQ0BhfMHlSH4SyTA1w9_dtFO7DdfCFgnkniSXKlEPlB8AEFyQo7aoTvFw/exec';
+    const defaultUrl = 'https://script.google.com/macros/s/AKfycbxNBy31uyMDtIQ0BhfMHISH4SyTA1w9_dtFO7DdfCFgnkniSXKlEPIB8AEFyQo7aoTvFw/exec';
     setScriptUrl(defaultUrl);
     sheetService.setScriptUrl(defaultUrl);
     setSaveStatus('saved');
@@ -69,8 +67,8 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
               <Link size={24} />
             </div>
             <div>
-              <h3 className="text-xl font-black uppercase tracking-tight">Parametros de Enlace</h3>
-              <p className="text-sm text-slate-400 font-medium">Sincronizacion en Tiempo Real (PNIQ Engine)</p>
+              <h3 className="text-xl font-black uppercase tracking-tight">Parámetros de Enlace</h3>
+              <p className="text-sm text-slate-400 font-medium">Sincronización en Tiempo Real (PNIQ Engine)</p>
             </div>
           </div>
           <div className="flex items-center gap-2 bg-emerald-500/10 text-emerald-400 px-4 py-2 rounded-xl border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest">
@@ -83,11 +81,11 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
           <div className="p-6 bg-amber-50 border border-amber-100 rounded-3xl flex gap-4">
             <div className="text-amber-500 mt-1"><AlertCircle size={24} /></div>
             <div className="space-y-2">
-              <h4 className="text-xs font-black text-amber-800 uppercase tracking-tighter">Guia de Publicacion</h4>
+              <h4 className="text-xs font-black text-amber-800 uppercase tracking-tighter">Guía de Publicación</h4>
               <p className="text-[11px] text-amber-700 leading-relaxed font-medium">
-                Si ve el error de red, verifique la publicacion del Apps Script:<br/>
-                1. Ir a Implementar - Nueva implementacion.<br/>
-                2. Tipo: Aplicacion Web.<br/>
+                Si ve el error de red, verifique la publicación del Apps Script:<br/>
+                1. Ir a Implementar - Nueva implementación.<br/>
+                2. Tipo: Aplicación Web.<br/>
                 3. Ejecutar como: YO.<br/>
                 4. Quien tiene acceso: CUALQUIERA (Anyone).
               </p>
@@ -102,7 +100,7 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
                   onClick={handleClearLocal}
                   className="text-[9px] font-black text-rose-500 uppercase hover:underline flex items-center gap-1"
                 >
-                  <Trash2 size={10} /> Limpiar Cache
+                  <Trash2 size={10} /> Limpiar Caché
                 </button>
                 <button 
                   onClick={handleRestoreDefault}
@@ -135,13 +133,13 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
                 </button>
                 
                 <a 
-                  href="https://docs.google.com/spreadsheets/d/17slRl7f9AKQgCEGF5jDLMGfmOc-unp1gXSRpYFGX1Eg/edit" 
+                  href="https://docs.google.com/spreadsheets/d/12D-vuHFdm9ZEowT0cLR8QWYhzYgp40grsdmVHjfqiw/edit" 
                   target="_blank" 
                   rel="noreferrer"
                   className="p-5 bg-slate-100 text-slate-600 font-black rounded-2xl hover:bg-slate-200 transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-3"
                 >
-                  <ICONS.Search.type {...ICONS.Search.props} size={16} />
-                  Ver Oficina Virtual (17slRl...)
+                  <Search size={16} />
+                  Ver Oficina Virtual
                 </a>
               </div>
             </div>
@@ -153,7 +151,7 @@ const SettingsModule: React.FC<Props> = ({ fees, onUpdateFees }) => {
         <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-slate-900 text-white rounded-2xl">
-              <ICONS.Payments.type {...ICONS.Payments.props} size={20} />
+              <CreditCard size={20} />
             </div>
             <div>
               <h3 className="text-lg font-bold text-slate-800">Escala de Aranceles</h3>

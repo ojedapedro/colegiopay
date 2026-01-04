@@ -16,7 +16,6 @@ const getFlexValue = (obj: any, searchKey: string): any => {
   return key ? obj[key] : undefined;
 };
 
-// Mapeo inteligente para asegurar que el string de Sheets coincida con el Enum
 const mapStatus = (val: string): PaymentStatus => {
   const s = normalizeStr(val);
   if (s.includes('verificado') || s.includes('aprobado')) return PaymentStatus.VERIFICADO;
@@ -33,7 +32,36 @@ const mapMethod = (val: string): PaymentMethod => {
   if (m.includes('efectivo') && (m.includes('bs') || m.includes('bolivares'))) return PaymentMethod.EFECTIVO_BS;
   if (m.includes('tdc')) return PaymentMethod.TDC;
   if (m.includes('tdd')) return PaymentMethod.TDD;
-  return PaymentMethod.PAGO_MOVIL; // Default para electrónicos desconocidos
+  return PaymentMethod.PAGO_MOVIL;
+};
+
+const normalizePayment = (p: any, index: number, prefix: 'PAY' | 'OV' = 'PAY'): PaymentRecord => {
+  const rawMonto = getFlexValue(p, 'amount') || getFlexValue(p, 'monto') || 0;
+  const amount = parseFloat(String(rawMonto).replace(',', '.'));
+  const ref = String(getFlexValue(p, 'reference') || getFlexValue(p, 'referencia') || 'S/R');
+  const cedula = cleanId(getFlexValue(p, 'cedulaRepresentative') || getFlexValue(p, 'cedula') || getFlexValue(p, 'representante'));
+  const idFromSheet = String(getFlexValue(p, 'id') || '');
+  
+  let finalId = idFromSheet;
+  if (!finalId.startsWith('PAY-') && !finalId.startsWith('OV-')) {
+    finalId = `${prefix}-${ref}-${index}`;
+  }
+
+  return {
+    id: finalId, 
+    timestamp: String(getFlexValue(p, 'timestamp') || new Date().toISOString()),
+    paymentDate: String(getFlexValue(p, 'paymentDate') || getFlexValue(p, 'fecha') || new Date().toISOString().split('T')[0]),
+    cedulaRepresentative: cedula,
+    matricula: String(getFlexValue(p, 'matricula') || 'N/A'),
+    level: (getFlexValue(p, 'level') || Level.PRIMARIA) as Level,
+    method: mapMethod(String(getFlexValue(p, 'method') || getFlexValue(p, 'instrumento') || 'Pago Movil')),
+    reference: ref,
+    amount: isNaN(amount) ? 0 : amount,
+    observations: String(getFlexValue(p, 'observations') || getFlexValue(p, 'observaciones') || ''),
+    status: mapStatus(String(getFlexValue(p, 'status') || 'Pendiente')),
+    type: (String(getFlexValue(p, 'type') || '').toUpperCase().includes('ABONO') ? 'ABONO' : 'TOTAL') as 'ABONO' | 'TOTAL',
+    pendingBalance: parseFloat(String(getFlexValue(p, 'pendingBalance') || 0))
+  };
 };
 
 export const sheetService = {
@@ -68,7 +96,15 @@ export const sheetService = {
         mode: 'cors',
         redirect: 'follow'
       });
-      return await this.safeParseJson(response);
+      const data = await this.safeParseJson(response);
+      if (data && !data.error) {
+        // Normalizar pagos procedentes de la hoja principal "pagos"
+        if (data.payments) {
+          data.payments = data.payments.map((p: any, i: number) => normalizePayment(p, i, 'PAY'));
+        }
+        return data;
+      }
+      return null;
     } catch (error) {
       return null;
     }
@@ -86,35 +122,7 @@ export const sheetService = {
       if (!result) return [];
       
       const rawPayments = Array.isArray(result) ? result : (result.payments || result.data || []);
-      
-      return rawPayments.map((p: any, index: number) => {
-        const rawMonto = getFlexValue(p, 'amount') || getFlexValue(p, 'monto') || 0;
-        const amount = parseFloat(String(rawMonto).replace(',', '.'));
-        const ref = String(getFlexValue(p, 'reference') || getFlexValue(p, 'referencia') || 'S/R');
-        const cedula = cleanId(getFlexValue(p, 'cedulaRepresentative') || getFlexValue(p, 'cedula') || getFlexValue(p, 'representante'));
-        const idFromSheet = String(getFlexValue(p, 'id') || '');
-        
-        let finalId = idFromSheet;
-        if (!finalId.startsWith('OV-')) {
-          finalId = `OV-${ref}-${index}`;
-        }
-
-        return {
-          id: finalId, 
-          timestamp: String(getFlexValue(p, 'timestamp') || new Date().toISOString()),
-          paymentDate: String(getFlexValue(p, 'paymentDate') || getFlexValue(p, 'fecha') || new Date().toISOString().split('T')[0]),
-          cedulaRepresentative: cedula,
-          matricula: String(getFlexValue(p, 'matricula') || 'N/A'),
-          level: (getFlexValue(p, 'level') || Level.PRIMARIA) as Level,
-          method: mapMethod(String(getFlexValue(p, 'method') || getFlexValue(p, 'instrumento') || 'Pago Movil')),
-          reference: ref,
-          amount: isNaN(amount) ? 0 : amount,
-          observations: String(getFlexValue(p, 'observations') || getFlexValue(p, 'observaciones') || '[Oficina Virtual]'),
-          status: mapStatus(String(getFlexValue(p, 'status') || 'Pendiente')),
-          type: (String(getFlexValue(p, 'type') || '').toUpperCase().includes('ABONO') ? 'ABONO' : 'TOTAL') as 'ABONO' | 'TOTAL',
-          pendingBalance: parseFloat(String(getFlexValue(p, 'pendingBalance') || 0))
-        };
-      });
+      return rawPayments.map((p: any, index: number) => normalizePayment(p, index, 'OV'));
     } catch (error) {
       return [];
     }
