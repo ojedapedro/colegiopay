@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Representative, PaymentRecord, LevelFees, PaymentStatus } from '../types';
-import { ChevronUp, History, Receipt, Info, Check, Calendar, AlertCircle } from 'lucide-react';
+import { ChevronUp, History, Receipt, Info, Check, Calendar, AlertCircle, Clock, XCircle, CheckCircle2 } from 'lucide-react';
 
 function RefreshCw({ className, size }: { className?: string, size: number }) {
   return (
@@ -34,9 +34,10 @@ export default function LedgerModule({ representatives, payments, fees }: Props)
 
   const getLedgerData = () => {
     return representatives.map(rep => {
+      const repPayments = payments.filter(p => p.cedulaRepresentative === rep.cedula);
       const totalDue = rep.totalAccruedDebt || 0;
-      const verifiedPayments = payments.filter(p => p.cedulaRepresentative === rep.cedula && p.status === PaymentStatus.VERIFICADO);
-      const pendingPayments = payments.filter(p => p.cedulaRepresentative === rep.cedula && p.status === PaymentStatus.PENDIENTE);
+      const verifiedPayments = repPayments.filter(p => p.status === PaymentStatus.VERIFICADO);
+      const pendingPayments = repPayments.filter(p => p.status === PaymentStatus.PENDIENTE);
       const totalPaid = verifiedPayments.reduce((sum, p) => sum + p.amount, 0);
       const totalInTransit = pendingPayments.reduce((sum, p) => sum + p.amount, 0);
       const balance = Math.max(0, totalDue - totalPaid);
@@ -47,7 +48,7 @@ export default function LedgerModule({ representatives, payments, fees }: Props)
         totalPaid,
         totalInTransit,
         balance,
-        verifiedHistory: verifiedPayments,
+        fullHistory: repPayments.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
         lastDate: verifiedPayments.length > 0 ? verifiedPayments.sort((a,b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime())[0].paymentDate : 'Sin abonos',
         isCritical: balance > 0 && isUrgent
       };
@@ -182,40 +183,74 @@ export default function LedgerModule({ representatives, payments, fees }: Props)
                   {expandedRep === item.cedula && (
                     <tr className="bg-slate-50/50">
                       <td colSpan={5} className="px-12 py-8">
-                        <div className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-inner space-y-6">
+                        <div className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-inner space-y-8">
                            <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
-                                <History size={18} className="text-blue-500" />
-                                <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">Estado de Cuenta Detallado</h4>
+                                <History size={22} className="text-blue-600" />
+                                <h4 className="text-lg font-black text-slate-800 uppercase tracking-tighter">Estado de Cuenta Detallado</h4>
                               </div>
-                              <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase bg-slate-100 px-3 py-1.5 rounded-xl">
-                                <AlertCircle size={12} />
-                                La deuda total incluye cargos desde la inscripción inicial.
+                              <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
+                                <AlertCircle size={14} className="text-blue-500" />
+                                Historial basado en registros verificados y pendientes.
                               </div>
                            </div>
                            
-                           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                             <div className="space-y-4">
-                               <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Abonos Realizados</h5>
-                               {item.verifiedHistory.length === 0 ? (
-                                 <div className="p-8 border-2 border-dashed border-slate-100 rounded-3xl text-center">
-                                   <p className="text-xs font-bold text-slate-400 uppercase italic">No se registran abonos verificados.</p>
+                           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                             {/* SECCIÓN NUEVA: Historial Completo de Pagos */}
+                             <div className="lg:col-span-7 space-y-4">
+                               <div className="flex items-center justify-between">
+                                 <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Historial Cronológico de Transacciones</h5>
+                                 <span className="text-[9px] font-bold text-slate-400 uppercase">{item.fullHistory.length} Operaciones</span>
+                               </div>
+                               
+                               {item.fullHistory.length === 0 ? (
+                                 <div className="p-12 border-2 border-dashed border-slate-100 rounded-[2rem] text-center bg-slate-50/30">
+                                   <History size={32} className="mx-auto text-slate-200 mb-4" />
+                                   <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Sin registros de pago vinculados.</p>
                                  </div>
                                ) : (
-                                 <div className="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
-                                   {item.verifiedHistory.sort((a,b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()).map((p) => (
-                                     <div key={p.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-emerald-200 hover:bg-emerald-50/30 transition-all">
-                                       <div className="flex items-center gap-4">
-                                          <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-emerald-500 border border-emerald-100 shadow-sm">
-                                             <Check size={18} strokeWidth={3} />
+                                 <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                   {item.fullHistory.map((p) => (
+                                     <div key={p.id} className={`flex items-center justify-between p-5 bg-white rounded-3xl border transition-all group hover:shadow-lg ${
+                                       p.status === PaymentStatus.VERIFICADO ? 'border-slate-100 hover:border-emerald-200 hover:bg-emerald-50/10' :
+                                       p.status === PaymentStatus.PENDIENTE ? 'border-amber-100 bg-amber-50/20 hover:border-amber-300' :
+                                       'border-rose-100 bg-rose-50/20 hover:border-rose-300'
+                                     }`}>
+                                       <div className="flex items-center gap-5">
+                                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm border ${
+                                            p.status === PaymentStatus.VERIFICADO ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                            p.status === PaymentStatus.PENDIENTE ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                                            'bg-rose-50 text-rose-600 border-rose-100'
+                                          }`}>
+                                             {p.status === PaymentStatus.VERIFICADO && <CheckCircle2 size={22} strokeWidth={2.5} />}
+                                             {p.status === PaymentStatus.PENDIENTE && <Clock size={22} strokeWidth={2.5} className="animate-spin-slow" />}
+                                             {p.status === PaymentStatus.RECHAZADO && <XCircle size={22} strokeWidth={2.5} />}
                                           </div>
                                           <div>
-                                             <p className="text-xs font-black text-slate-800">{p.paymentDate}</p>
-                                             <p className="text-[10px] font-bold text-slate-400 uppercase">{p.method} • Ref: {p.reference}</p>
+                                             <div className="flex items-center gap-2">
+                                               <p className="text-sm font-black text-slate-800 tracking-tight">{p.paymentDate}</p>
+                                               <span className={`text-[8px] px-1.5 py-0.5 rounded-lg font-black uppercase tracking-widest ${
+                                                  p.status === PaymentStatus.VERIFICADO ? 'bg-emerald-100 text-emerald-700' :
+                                                  p.status === PaymentStatus.PENDIENTE ? 'bg-amber-100 text-amber-700' :
+                                                  'bg-rose-100 text-rose-700'
+                                               }`}>
+                                                 {p.status}
+                                               </span>
+                                             </div>
+                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5">
+                                               {p.method} • <span className="font-mono">{p.reference}</span>
+                                             </p>
                                           </div>
                                        </div>
                                        <div className="text-right">
-                                          <p className="text-sm font-black text-emerald-600">-${p.amount.toFixed(2)}</p>
+                                          <p className={`text-lg font-black tracking-tighter ${
+                                            p.status === PaymentStatus.VERIFICADO ? 'text-emerald-600' :
+                                            p.status === PaymentStatus.PENDIENTE ? 'text-amber-600' :
+                                            'text-rose-600'
+                                          }`}>
+                                            ${p.amount.toFixed(2)}
+                                          </p>
+                                          <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Monto Transado</p>
                                        </div>
                                      </div>
                                    ))}
@@ -223,29 +258,44 @@ export default function LedgerModule({ representatives, payments, fees }: Props)
                                )}
                              </div>
 
-                             <div className="space-y-4">
-                               <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Resumen de Cuotas Familiares</h5>
-                               <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 space-y-4">
-                                 {item.students.map((s, idx) => (
-                                   <div key={idx} className="flex justify-between items-center text-sm font-bold border-b border-slate-200 pb-3 last:border-0 last:pb-0">
-                                      <div>
-                                        <p className="text-slate-700">{s.fullName}</p>
-                                        <p className="text-[9px] text-blue-500 uppercase">{s.level}</p>
-                                      </div>
-                                      <p className="text-slate-400">${fees[s.level]?.toFixed(2)} / mes</p>
+                             <div className="lg:col-span-5 space-y-6">
+                               <div className="space-y-4">
+                                 <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Cuotas Familiares Activas</h5>
+                                 <div className="p-8 bg-slate-50 rounded-[2rem] border border-slate-200 shadow-inner space-y-5">
+                                   {item.students.map((s, idx) => (
+                                     <div key={idx} className="flex justify-between items-center group">
+                                        <div className="flex items-center gap-3">
+                                          <div className="w-2 h-2 rounded-full bg-blue-500 group-hover:scale-150 transition-transform"></div>
+                                          <div>
+                                            <p className="text-sm font-black text-slate-700 uppercase tracking-tight">{s.fullName}</p>
+                                            <p className="text-[9px] text-blue-500 font-black uppercase tracking-widest">{s.level}</p>
+                                          </div>
+                                        </div>
+                                        <p className="font-black text-slate-400">${fees[s.level]?.toFixed(2)}</p>
+                                     </div>
+                                   ))}
+                                   <div className="pt-6 mt-6 border-t border-slate-200 flex justify-between items-center">
+                                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Carga Mensual Total:</p>
+                                      <span className="text-2xl font-black text-blue-600 tracking-tighter">${item.students.reduce((sum, s) => sum + (fees[s.level] || 0), 0).toFixed(2)}</span>
                                    </div>
-                                 ))}
-                                 <div className="pt-4 mt-4 border-t border-slate-200 flex justify-between items-center font-black text-slate-800 uppercase text-xs tracking-widest">
-                                    <span>Total Cuota Mensual:</span>
-                                    <span className="text-blue-600 text-lg">${item.students.reduce((sum, s) => sum + (fees[s.level] || 0), 0).toFixed(2)}</span>
                                  </div>
+                               </div>
+
+                               <div className="p-6 bg-blue-600 rounded-3xl text-white shadow-xl shadow-blue-500/10 flex items-center justify-between">
+                                  <div>
+                                    <p className="text-[9px] font-black uppercase opacity-60">Total Recaudado Histórico</p>
+                                    <p className="text-2xl font-black">${item.totalPaid.toFixed(2)}</p>
+                                  </div>
+                                  <div className="p-3 bg-white/10 rounded-2xl">
+                                    <Check size={20} strokeWidth={3} />
+                                  </div>
                                </div>
                              </div>
                            </div>
                            
-                           <div className="pt-4 flex items-center gap-4 text-xs font-bold text-slate-400 border-t border-slate-100">
-                              <Info size={14} />
-                              <p>El sistema genera cobros automáticos el primer día de cada mes calendario para todos los alumnos activos.</p>
+                           <div className="pt-6 flex items-center gap-4 text-[10px] font-bold text-slate-400 border-t border-slate-100 uppercase tracking-widest">
+                              <Info size={16} className="text-blue-500" />
+                              <p>Las auditorías se realizan diariamente. Si un pago rechazado fue corregido, aparecerá como nuevo registro.</p>
                            </div>
                         </div>
                       </td>
