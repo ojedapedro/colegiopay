@@ -68,7 +68,7 @@ export default function App() {
       localStorage.setItem('school_pays_local', JSON.stringify(newPays));
       localStorage.setItem('school_fees_local', JSON.stringify(newFees));
     } catch (e) {
-      console.error("Error local storage", e);
+      console.error("Local storage sync error", e);
     }
 
     if (sheetService.isValidConfig()) {
@@ -203,12 +203,12 @@ export default function App() {
         <div className="p-8 flex items-center gap-4 border-b border-slate-800">
           <img src={INSTITUTION_LOGO} alt="Logo" className="w-10 h-10 object-contain bg-white rounded-lg p-1" />
           <div>
-            <h1 className="text-xl font-black uppercase tracking-tighter">Colegio<span className="text-blue-500">Pay</span></h1>
-            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Plataforma V3</p>
+            <h1 className="text-xl font-black uppercase tracking-tighter text-white">Colegio<span className="text-blue-500">Pay</span></h1>
+            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Plataforma V3.1</p>
           </div>
         </div>
 
-        <nav className="flex-1 p-6 space-y-2 overflow-y-auto">
+        <nav className="flex-1 p-6 space-y-2 overflow-y-auto custom-scrollbar">
           <NavItem active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<LayoutGrid size={20} />} label="Panel Control" />
           <NavItem active={activeTab === 'students'} onClick={() => setActiveTab('students')} icon={<UserPlus size={20} />} label="Matriculación" />
           <NavItem active={activeTab === 'payments'} onClick={() => setActiveTab('payments')} icon={<Wallet size={20} />} label="Caja y Cobros" />
@@ -227,7 +227,7 @@ export default function App() {
 
         <div className="p-6 bg-slate-900/50 border-t border-slate-800">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-black shadow-lg">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-black shadow-lg uppercase">
               {currentUser.fullName[0]}
             </div>
             <div className="flex-1 overflow-hidden">

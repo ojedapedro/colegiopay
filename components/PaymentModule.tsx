@@ -8,7 +8,9 @@ import {
   PaymentStatus 
 } from '../types';
 import { ICONS } from '../constants';
-import { CheckCircle2, PlusCircle, UserCircle } from 'lucide-react';
+import { CheckCircle2, PlusCircle, UserCircle, Receipt, Printer, X, Download } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
 interface Props {
   representatives: Representative[];
@@ -27,11 +29,14 @@ const PaymentModule: React.FC<Props> = ({ representatives, payments, fees, onPay
   const [type, setType] = useState<'ABONO' | 'TOTAL'>('TOTAL');
   const [obs, setObs] = useState('');
   
+  // Estado para el modal de recibo
+  const [showReceipt, setShowReceipt] = useState<PaymentRecord | null>(null);
+  
   const amountInputRef = useRef<HTMLInputElement>(null);
 
   const filteredRep = useMemo(() => {
     if (!searchCedula) return null;
-    return representatives.find(r => r.cedula === searchCedula);
+    return representatives.find(r => r.cedula === searchCedula || r.matricula === searchCedula);
   }, [searchCedula, representatives]);
 
   const handleSearch = () => {
@@ -46,20 +51,18 @@ const PaymentModule: React.FC<Props> = ({ representatives, payments, fees, onPay
       setType('TOTAL');
       setAmount(pending.toString());
     } else {
-      alert("Representante no encontrado.");
+      alert("No se encontró ningún representante con esa identificación.");
     }
   };
 
-  const calculatePending = () => {
+  const pendingAmount = useMemo(() => {
     if (!selectedRep) return 0;
     const totalAccrued = selectedRep.totalAccruedDebt || 0;
     const verifiedPaid = payments
       .filter(p => p.cedulaRepresentative === selectedRep.cedula && p.status === PaymentStatus.VERIFICADO)
       .reduce((sum, p) => sum + p.amount, 0);
     return Math.max(0, totalAccrued - verifiedPaid);
-  };
-
-  const pendingAmount = calculatePending();
+  }, [selectedRep, payments]);
 
   const handleTypeChange = (newType: 'ABONO' | 'TOTAL') => {
     setType(newType);
@@ -67,9 +70,7 @@ const PaymentModule: React.FC<Props> = ({ representatives, payments, fees, onPay
       setAmount(pendingAmount.toString());
     } else {
       setAmount('');
-      setTimeout(() => {
-        amountInputRef.current?.focus();
-      }, 50);
+      setTimeout(() => amountInputRef.current?.focus(), 50);
     }
   };
 
@@ -101,8 +102,9 @@ const PaymentModule: React.FC<Props> = ({ representatives, payments, fees, onPay
     };
 
     onPay(newRecord);
-    alert(`Pago registrado satisfactoriamente. ${isElectronic ? 'Pendiente por verificación.' : 'Verificado automáticamente.'}`);
+    setShowReceipt(newRecord); // Mostrar modal de recibo
     
+    // Limpiar formulario
     setAmount('');
     setReference('');
     setObs('');
@@ -110,12 +112,114 @@ const PaymentModule: React.FC<Props> = ({ representatives, payments, fees, onPay
     setSearchCedula('');
   };
 
+  const downloadReceiptPDF = (pay: PaymentRecord) => {
+    const rep = representatives.find(r => r.cedula === pay.cedulaRepresentative);
+    const doc = new jsPDF({ format: 'a5' });
+    
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, 148, 25, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.text('COLEGIO SAN FRANCISCO', 10, 15);
+    doc.setFontSize(8);
+    doc.text('COMPROBANTE DE PAGO', 10, 20);
+    
+    doc.setTextColor(50, 50, 50);
+    doc.setFontSize(10);
+    doc.text(`ID Recibo: ${pay.id}`, 10, 35);
+    doc.text(`Fecha: ${pay.paymentDate}`, 10, 40);
+    
+    doc.text(`Representante: ${rep?.firstName} ${rep?.lastName}`, 10, 55);
+    doc.text(`Cédula: ${pay.cedulaRepresentative}`, 10, 60);
+    doc.text(`Matrícula: ${pay.matricula}`, 10, 65);
+    
+    (doc as any).autoTable({
+      startY: 75,
+      head: [['Descripción', 'Método', 'Monto']],
+      body: [
+        [pay.type === 'TOTAL' ? 'Liquidación Mensual' : 'Abono Parcial', pay.method, `$${pay.amount.toFixed(2)}`]
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [59, 130, 246] }
+    });
+    
+    const finalY = (doc as any).lastAutoTable.finalY + 10;
+    doc.setFontSize(12);
+    doc.text(`SALDO PENDIENTE: $${pay.pendingBalance.toFixed(2)}`, 10, finalY);
+    
+    doc.setFontSize(8);
+    doc.text('Este documento es un comprobante administrativo válido.', 10, 180);
+    doc.save(`Recibo_${pay.id}.pdf`);
+  };
+
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn relative">
+      {/* Modal de Recibo */}
+      {showReceipt && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-scaleIn">
+            <div className="p-8 bg-blue-600 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Receipt size={24} />
+                <h3 className="text-xl font-black uppercase tracking-tight">Recibo Generado</h3>
+              </div>
+              <button onClick={() => setShowReceipt(null)} className="p-2 hover:bg-white/10 rounded-xl transition-all">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-8 space-y-6">
+              <div className="flex flex-col items-center text-center space-y-2">
+                <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-2">
+                  <CheckCircle2 size={32} />
+                </div>
+                <p className="text-sm font-black text-slate-400 uppercase tracking-widest">Pago Exitoso</p>
+                <h4 className="text-3xl font-black text-slate-900 tracking-tighter">${showReceipt.amount.toFixed(2)}</h4>
+              </div>
+              
+              <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100 space-y-4">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-bold text-slate-400 uppercase">Referencia</span>
+                  <span className="font-mono font-black text-slate-700">{showReceipt.reference}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-bold text-slate-400 uppercase">Método</span>
+                  <span className="font-black text-slate-700">{showReceipt.method}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-bold text-slate-400 uppercase">Matrícula</span>
+                  <span className="font-black text-slate-700">{showReceipt.matricula}</span>
+                </div>
+                <div className="pt-4 border-t border-slate-200 flex justify-between items-center">
+                  <span className="text-[10px] font-black text-slate-400 uppercase">Saldo Pendiente</span>
+                  <span className="text-lg font-black text-rose-500 tracking-tight">${showReceipt.pendingBalance.toFixed(2)}</span>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <button 
+                  onClick={() => downloadReceiptPDF(showReceipt)}
+                  className="p-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 hover:bg-slate-800 transition-all shadow-xl shadow-slate-200"
+                >
+                  <Download size={14} /> Descargar PDF
+                </button>
+                <button 
+                  onClick={() => window.print()}
+                  className="p-4 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 hover:bg-slate-50 transition-all shadow-sm"
+                >
+                  <Printer size={14} /> Imprimir
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
         <div className="flex flex-col md:flex-row gap-6 items-end">
           <div className="flex-1 space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Búsqueda por Cédula / Matrícula</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Búsqueda por Cédula o Matrícula</label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">{ICONS.Search}</span>
               <input 
