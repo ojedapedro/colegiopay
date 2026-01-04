@@ -8,22 +8,22 @@ import {
   PaymentStatus, 
   User,
   UserRole
-} from './types.ts';
-import { ICONS } from './constants.tsx';
+} from './types';
+import { ICONS } from './constants';
 import { ShieldCheck, LayoutGrid, ClipboardList, Wallet, FileBarChart, Settings, Users, UserPlus, RefreshCcw } from 'lucide-react';
-import { initialRepresentatives, initialPayments, initialUsers } from './services/mockData.ts';
-import { sheetService } from './services/googleSheets.ts';
+import { initialRepresentatives, initialPayments, initialUsers } from './services/mockData';
+import { sheetService } from './services/googleSheets';
 
-import Dashboard from './components/Dashboard.tsx';
-import StudentRegistration from './components/StudentRegistration.tsx';
-import PaymentModule from './components/PaymentModule.tsx';
-import VerificationList from './components/VerificationList.tsx';
-import ReportsModule from './components/ReportsModule.tsx';
-import Auth from './components/Auth.tsx';
-import UserManagement from './components/UserManagement.tsx';
-import SettingsModule from './components/SettingsModule.tsx';
-import LedgerModule from './components/LedgerModule.tsx';
-import RepresentativePortal from './components/RepresentativePortal.tsx';
+import Dashboard from './components/Dashboard';
+import StudentRegistration from './components/StudentRegistration';
+import PaymentModule from './components/PaymentModule';
+import VerificationList from './components/VerificationList';
+import ReportsModule from './components/ReportsModule';
+import Auth from './components/Auth';
+import UserManagement from './components/UserManagement';
+import SettingsModule from './components/SettingsModule';
+import LedgerModule from './components/LedgerModule';
+import RepresentativePortal from './components/RepresentativePortal';
 
 const INSTITUTION_LOGO = "https://i.ibb.co/FbHJbvVT/images.png";
 
@@ -57,10 +57,10 @@ export default function App() {
   const [cloudStatus, setCloudStatus] = useState<'online' | 'offline' | 'pending'>('pending');
 
   const updateData = useCallback(async (newUsers: User[], newReps: Representative[], newPays: PaymentRecord[], newFees: LevelFees) => {
-    setUsers(newUsers);
-    setRepresentatives(newReps);
-    setPayments(newPays);
-    setFees(newFees);
+    setUsers([...newUsers]);
+    setRepresentatives([...newReps]);
+    setPayments([...newPays]);
+    setFees({...newFees});
     
     try {
       localStorage.setItem('school_users_local', JSON.stringify(newUsers));
@@ -68,7 +68,7 @@ export default function App() {
       localStorage.setItem('school_pays_local', JSON.stringify(newPays));
       localStorage.setItem('school_fees_local', JSON.stringify(newFees));
     } catch (e) {
-      console.error("Error guardando en localStorage:", e);
+      console.error("Error local storage", e);
     }
 
     if (sheetService.isValidConfig()) {
@@ -145,7 +145,7 @@ export default function App() {
           }
         }
       } catch (err) {
-        console.error("Error durante la carga:", err);
+        console.error("Load error", err);
       } finally {
         setIsLoading(false);
       }
@@ -170,7 +170,7 @@ export default function App() {
       <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center text-white">
         <img src={INSTITUTION_LOGO} alt="Logo" className="w-24 h-24 mb-6 animate-pulse" />
         <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="mt-4 text-xs font-black uppercase tracking-widest opacity-50">Sincronizando Sistemas...</p>
+        <p className="mt-4 text-xs font-black uppercase tracking-widest opacity-50">Sincronizando...</p>
       </div>
     );
   }
@@ -197,9 +197,6 @@ export default function App() {
     );
   }
 
-  const canManageUsers = currentUser.role === UserRole.ADMINISTRADOR;
-  const canConfig = currentUser.role === UserRole.ADMINISTRADOR || currentUser.role === UserRole.SUPERVISOR;
-
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-[#f8fafc]">
       <aside className="w-full md:w-72 bg-[#0f172a] text-white flex flex-col shadow-2xl z-20">
@@ -207,7 +204,7 @@ export default function App() {
           <img src={INSTITUTION_LOGO} alt="Logo" className="w-10 h-10 object-contain bg-white rounded-lg p-1" />
           <div>
             <h1 className="text-xl font-black uppercase tracking-tighter">Colegio<span className="text-blue-500">Pay</span></h1>
-            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Plataforma V3.0</p>
+            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Plataforma V3</p>
           </div>
         </div>
 
@@ -219,18 +216,18 @@ export default function App() {
           <NavItem active={activeTab === 'ledger'} onClick={() => setActiveTab('ledger')} icon={<ClipboardList size={20} />} label="Libro Maestro" />
           <NavItem active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} icon={<FileBarChart size={20} />} label="Reportes" />
           
-          {(canManageUsers || canConfig) && (
+          {(currentUser.role === UserRole.ADMINISTRADOR || currentUser.role === UserRole.SUPERVISOR) && (
             <div className="pt-6 mt-6 border-t border-slate-800 space-y-2">
               <p className="px-4 text-[10px] font-black text-slate-600 uppercase tracking-widest mb-4">Administración</p>
-              {canManageUsers && <NavItem active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={<Users size={20} />} label="Personal" />}
-              {canConfig && <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<Settings size={20} />} label="Parámetros" />}
+              {currentUser.role === UserRole.ADMINISTRADOR && <NavItem active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={<Users size={20} />} label="Personal" />}
+              <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<Settings size={20} />} label="Parámetros" />
             </div>
           )}
         </nav>
 
         <div className="p-6 bg-slate-900/50 border-t border-slate-800">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-black shadow-lg shadow-blue-500/20">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-black shadow-lg">
               {currentUser.fullName[0]}
             </div>
             <div className="flex-1 overflow-hidden">
@@ -257,13 +254,12 @@ export default function App() {
               {activeTab === 'settings' && "Variables del Sistema"}
               {activeTab === 'ledger' && "Estados de Cuenta"}
             </h2>
-            <p className="text-sm text-slate-400 font-bold uppercase tracking-widest mt-1">Gestión administrativa Colegio San Francisco</p>
           </div>
 
           <div className="flex items-center gap-3">
              <div className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl border text-[10px] font-black uppercase tracking-widest ${cloudStatus === 'online' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
                 <div className={`w-2 h-2 rounded-full ${cloudStatus === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></div>
-                {isSyncing ? 'Sincronizando...' : `Nube: ${cloudStatus}`}
+                {isSyncing ? 'Sync...' : `Nube: ${cloudStatus}`}
              </div>
              <button onClick={fetchCloudData} className="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-blue-500 transition-all active:scale-95 shadow-sm">
                <RefreshCcw size={18} className={isSyncing ? 'animate-spin' : ''} />
