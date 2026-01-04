@@ -170,7 +170,7 @@ export default function App() {
       <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center text-white">
         <img src={INSTITUTION_LOGO} alt="Logo" className="w-24 h-24 mb-6 animate-pulse" />
         <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="mt-4 text-xs font-black uppercase tracking-widest opacity-50">Sincronizando...</p>
+        <p className="mt-4 text-xs font-black uppercase tracking-widest opacity-50">Sincronizando Sistema...</p>
       </div>
     );
   }
