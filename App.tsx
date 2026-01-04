@@ -8,22 +8,22 @@ import {
   PaymentStatus, 
   User,
   UserRole
-} from './types';
-import { ICONS } from './constants';
+} from './types.ts';
+import { ICONS } from './constants.tsx';
 import { ShieldCheck, LayoutGrid, ClipboardList, Wallet, FileBarChart, Settings, Users, UserPlus, RefreshCcw } from 'lucide-react';
-import { initialRepresentatives, initialPayments, initialUsers } from './services/mockData';
-import { sheetService } from './services/googleSheets';
+import { initialRepresentatives, initialPayments, initialUsers } from './services/mockData.ts';
+import { sheetService } from './services/googleSheets.ts';
 
-import Dashboard from './components/Dashboard';
-import StudentRegistration from './components/StudentRegistration';
-import PaymentModule from './components/PaymentModule';
-import VerificationList from './components/VerificationList';
-import ReportsModule from './components/ReportsModule';
-import Auth from './components/Auth';
-import UserManagement from './components/UserManagement';
-import SettingsModule from './components/SettingsModule';
-import LedgerModule from './components/LedgerModule';
-import RepresentativePortal from './components/RepresentativePortal';
+import Dashboard from './components/Dashboard.tsx';
+import StudentRegistration from './components/StudentRegistration.tsx';
+import PaymentModule from './components/PaymentModule.tsx';
+import VerificationList from './components/VerificationList.tsx';
+import ReportsModule from './components/ReportsModule.tsx';
+import Auth from './components/Auth.tsx';
+import UserManagement from './components/UserManagement.tsx';
+import SettingsModule from './components/SettingsModule.tsx';
+import LedgerModule from './components/LedgerModule.tsx';
+import RepresentativePortal from './components/RepresentativePortal.tsx';
 
 const INSTITUTION_LOGO = "https://i.ibb.co/FbHJbvVT/images.png";
 
@@ -170,7 +170,7 @@ export default function App() {
       <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center text-white">
         <img src={INSTITUTION_LOGO} alt="Logo" className="w-24 h-24 mb-6 animate-pulse" />
         <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="mt-4 text-xs font-black uppercase tracking-widest opacity-50">Sincronizando Sistema...</p>
+        <p className="mt-4 text-xs font-black uppercase tracking-widest opacity-50">Iniciando ColegioPay...</p>
       </div>
     );
   }
