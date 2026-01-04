@@ -8,22 +8,22 @@ import {
   PaymentStatus, 
   User,
   UserRole
-} from './types';
-import { ICONS } from './constants';
+} from './types.ts';
+import { ICONS } from './constants.tsx';
 import { ShieldCheck, LayoutGrid, ClipboardList, Wallet, FileBarChart, Settings, Users, UserPlus, RefreshCcw } from 'lucide-react';
-import { initialRepresentatives, initialPayments, initialUsers } from './services/mockData';
-import { sheetService } from './services/googleSheets';
+import { initialRepresentatives, initialPayments, initialUsers } from './services/mockData.ts';
+import { sheetService } from './services/googleSheets.ts';
 
-import Dashboard from './components/Dashboard';
-import StudentRegistration from './components/StudentRegistration';
-import PaymentModule from './components/PaymentModule';
-import VerificationList from './components/VerificationList';
-import ReportsModule from './components/ReportsModule';
-import Auth from './components/Auth';
-import UserManagement from './components/UserManagement';
-import SettingsModule from './components/SettingsModule';
-import LedgerModule from './components/LedgerModule';
-import RepresentativePortal from './components/RepresentativePortal';
+import Dashboard from './components/Dashboard.tsx';
+import StudentRegistration from './components/StudentRegistration.tsx';
+import PaymentModule from './components/PaymentModule.tsx';
+import VerificationList from './components/VerificationList.tsx';
+import ReportsModule from './components/ReportsModule.tsx';
+import Auth from './components/Auth.tsx';
+import UserManagement from './components/UserManagement.tsx';
+import SettingsModule from './components/SettingsModule.tsx';
+import LedgerModule from './components/LedgerModule.tsx';
+import RepresentativePortal from './components/RepresentativePortal.tsx';
 
 const INSTITUTION_LOGO = "https://i.ibb.co/FbHJbvVT/images.png";
 
@@ -35,7 +35,7 @@ function NavItem({ active, onClick, icon, label, badge }: { active: boolean, onC
         <span className="text-[10px] uppercase tracking-widest">{label}</span>
       </div>
       {badge !== undefined && badge > 0 ? (
-        <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black ${active ? 'bg-white text-blue-600' : 'bg-rose-500 text-white'}`}>
+        <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black ${active ? 'bg-white text-blue-600' : 'bg-rose-50 text-white'}`}>
           {badge}
         </span>
       ) : null}
