@@ -4,9 +4,24 @@ import { Representative, PaymentRecord, PaymentStatus } from '../types';
 import { ICONS, COLORS } from '../constants';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 
+// Define Props interface outside the component to be accessible by React.FC<Props>
 interface Props {
   representatives: Representative[];
   payments: PaymentRecord[];
+}
+
+function StatCard({ title, value, icon, color }: { title: string; value: string; icon: React.ReactNode; color: string }) {
+  return (
+    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
+      <div className={`p-4 bg-${color}-50 text-${color}-600 rounded-2xl`}>
+        {icon}
+      </div>
+      <div>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{title}</p>
+        <p className="text-2xl font-black text-slate-800 tracking-tighter">{value}</p>
+      </div>
+    </div>
+  );
 }
 
 const Dashboard: React.FC<Props> = ({ representatives, payments }) => {
@@ -96,17 +111,5 @@ const Dashboard: React.FC<Props> = ({ representatives, payments }) => {
     </div>
   );
 };
-
-const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode; color: string }> = ({ title, value, icon, color }) => (
-  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
-    <div className={`p-4 bg-${color}-50 text-${color}-600 rounded-2xl`}>
-      {icon}
-    </div>
-    <div>
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{title}</p>
-      <p className="text-2xl font-black text-slate-800 tracking-tighter">{value}</p>
-    </div>
-  </div>
-);
 
 export default Dashboard;

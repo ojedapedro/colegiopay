@@ -1,8 +1,18 @@
-
 import React, { useState } from 'react';
 import { Representative, PaymentRecord, LevelFees, PaymentStatus } from '../types';
 import { ICONS } from '../constants';
-import { ChevronDown, ChevronUp, History, Receipt, Info, Check, Calendar, AlertCircle } from 'lucide-react';
+import { ChevronDown, ChevronUp, History, Receipt, Info, Check, Calendar, AlertCircle, RefreshCw as RefreshCwIcon } from 'lucide-react';
+
+function RefreshCw({ className, size }: { className?: string, size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+      <path d="M3 3v5h5"></path>
+      <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
+      <path d="M16 16h5v5"></path>
+    </svg>
+  );
+}
 
 interface Props {
   representatives: Representative[];
@@ -25,15 +35,11 @@ const LedgerModule: React.FC<Props> = ({ representatives, payments, fees }) => {
 
   const getLedgerData = () => {
     return representatives.map(rep => {
-      // Deuda acumulada del registro
       const totalDue = rep.totalAccruedDebt || 0;
-      
       const verifiedPayments = payments.filter(p => p.cedulaRepresentative === rep.cedula && p.status === PaymentStatus.VERIFICADO);
       const pendingPayments = payments.filter(p => p.cedulaRepresentative === rep.cedula && p.status === PaymentStatus.PENDIENTE);
-      
       const totalPaid = verifiedPayments.reduce((sum, p) => sum + p.amount, 0);
       const totalInTransit = pendingPayments.reduce((sum, p) => sum + p.amount, 0);
-      
       const balance = Math.max(0, totalDue - totalPaid);
 
       return {
@@ -55,10 +61,8 @@ const LedgerModule: React.FC<Props> = ({ representatives, payments, fees }) => {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* Resumen Global */}
       <div className="bg-slate-900 text-white p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-        
         <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-12">
           <div className="space-y-2">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] ml-1">Capital Exigible Pendiente (Acumulado)</p>
@@ -192,7 +196,6 @@ const LedgerModule: React.FC<Props> = ({ representatives, payments, fees }) => {
                            </div>
                            
                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                             {/* Historial de Pagos */}
                              <div className="space-y-4">
                                <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Abonos Realizados</h5>
                                {item.verifiedHistory.length === 0 ? (
@@ -221,7 +224,6 @@ const LedgerModule: React.FC<Props> = ({ representatives, payments, fees }) => {
                                )}
                              </div>
 
-                             {/* Resumen Alumnos */}
                              <div className="space-y-4">
                                <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Resumen de Cuotas Familiares</h5>
                                <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 space-y-4">
@@ -259,9 +261,5 @@ const LedgerModule: React.FC<Props> = ({ representatives, payments, fees }) => {
     </div>
   );
 };
-
-const RefreshCw = ({ className, size }: { className?: string, size: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 16h5v5"></path></svg>
-);
 
 export default LedgerModule;

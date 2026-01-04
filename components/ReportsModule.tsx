@@ -1,9 +1,17 @@
-
 import React, { useState, useMemo } from 'react';
 import { PaymentRecord, Representative, PaymentStatus, PaymentMethod } from '../types';
 import { ICONS } from '../constants';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
+
+function DailyStatCard({ label, value, color }: { label: string, value: number, color: string }) {
+  return (
+    <div className={`p-5 bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition-shadow`}>
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mb-1">{label}</p>
+      <p className={`text-xl font-black text-${color}-600`}>${value.toFixed(2)}</p>
+    </div>
+  );
+}
 
 interface Props {
   payments: PaymentRecord[];
@@ -12,14 +20,10 @@ interface Props {
 
 const ReportsModule: React.FC<Props> = ({ payments, representatives }) => {
   const [activeSubTab, setActiveSubTab] = useState<'general' | 'daily'>('general');
-  
-  // Filtros General
   const [filterCedula, setFilterCedula] = useState('');
   const [filterStatus, setFilterStatus] = useState<PaymentStatus | 'ALL'>('ALL');
   const [filterDateStart, setFilterDateStart] = useState('');
   const [filterDateEnd, setFilterDateEnd] = useState('');
-
-  // Filtros Diario
   const [dailyDate, setDailyDate] = useState(new Date().toISOString().split('T')[0]);
 
   const dailyPayments = useMemo(() => {
@@ -27,14 +31,7 @@ const ReportsModule: React.FC<Props> = ({ payments, representatives }) => {
   }, [payments, dailyDate]);
 
   const dailyTotals = useMemo(() => {
-    const totals = {
-      usd: 0,
-      bs: 0,
-      zelle: 0,
-      others: 0,
-      grandTotal: 0
-    };
-
+    const totals = { usd: 0, bs: 0, zelle: 0, others: 0, grandTotal: 0 };
     dailyPayments.forEach(p => {
       totals.grandTotal += p.amount;
       if (p.method === PaymentMethod.EFECTIVO_USD) totals.usd += p.amount;
@@ -42,7 +39,6 @@ const ReportsModule: React.FC<Props> = ({ payments, representatives }) => {
       else if (p.method === PaymentMethod.ZELLE) totals.zelle += p.amount;
       else totals.others += p.amount;
     });
-
     return totals;
   }, [dailyPayments]);
 
@@ -70,7 +66,6 @@ const ReportsModule: React.FC<Props> = ({ payments, representatives }) => {
     doc.setFontSize(11);
     doc.text(`Fecha de Caja: ${dailyDate}`, 14, 30);
     doc.text(`Generado por Sistema ColegioPay`, 14, 35);
-
     doc.text('RESUMEN DE INGRESOS:', 14, 45);
     doc.text(`Efectivo USD: $${dailyTotals.usd.toFixed(2)}`, 20, 52);
     doc.text(`Efectivo/Pago Móvil BS: $${dailyTotals.bs.toFixed(2)}`, 20, 58);
@@ -78,7 +73,6 @@ const ReportsModule: React.FC<Props> = ({ payments, representatives }) => {
     doc.text(`Otros Métodos: $${dailyTotals.others.toFixed(2)}`, 20, 70);
     doc.setFont(undefined, 'bold');
     doc.text(`TOTAL GENERAL DEL DÍA: $${dailyTotals.grandTotal.toFixed(2)}`, 14, 80);
-
     const tableColumn = ["Hora", "Cédula", "Método", "Ref", "Monto"];
     const tableRows = dailyPayments.map(p => [
       new Date(p.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -87,7 +81,6 @@ const ReportsModule: React.FC<Props> = ({ payments, representatives }) => {
       p.reference,
       `$${p.amount.toFixed(2)}`
     ]);
-
     (doc as any).autoTable({
       head: [tableColumn],
       body: tableRows,
@@ -95,13 +88,11 @@ const ReportsModule: React.FC<Props> = ({ payments, representatives }) => {
       theme: 'striped',
       headStyles: { fillColor: [16, 185, 129] }
     });
-
     doc.save(`Cierre_Caja_${dailyDate}.pdf`);
   };
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* Tab Switcher */}
       <div className="flex bg-white p-1 rounded-2xl border border-slate-200 w-fit">
         <button 
           onClick={() => setActiveSubTab('general')}
@@ -167,7 +158,7 @@ const ReportsModule: React.FC<Props> = ({ payments, representatives }) => {
               <p className="text-2xl font-black">${dailyTotals.grandTotal.toFixed(2)}</p>
             </div>
           </div>
-
+          
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
               <h4 className="text-sm font-black text-slate-700 uppercase tracking-widest">Desglose de Operaciones</h4>
@@ -219,12 +210,5 @@ const ReportsModule: React.FC<Props> = ({ payments, representatives }) => {
     </div>
   );
 };
-
-const DailyStatCard = ({ label, value, color }: { label: string, value: number, color: string }) => (
-  <div className={`p-5 bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition-shadow`}>
-    <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mb-1">{label}</p>
-    <p className={`text-xl font-black text-${color}-600`}>${value.toFixed(2)}</p>
-  </div>
-);
 
 export default ReportsModule;

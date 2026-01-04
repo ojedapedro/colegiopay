@@ -9,24 +9,36 @@ import {
   PaymentStatus, 
   User,
   UserRole
-} from './types.ts';
-import { ICONS } from './constants.tsx';
+} from './types';
+import { ICONS } from './constants';
 import { ChevronDown, ChevronUp, ShieldCheck, LayoutGrid, ClipboardList, Wallet, FileBarChart, Settings, Users, UserPlus, Bell, RefreshCcw } from 'lucide-react';
-import { initialRepresentatives, initialPayments, initialUsers } from './services/mockData.ts';
-import { sheetService } from './services/googleSheets.ts';
+import { initialRepresentatives, initialPayments, initialUsers } from './services/mockData';
+import { sheetService } from './services/googleSheets';
 
-import Dashboard from './components/Dashboard.tsx';
-import StudentRegistration from './components/StudentRegistration.tsx';
-import PaymentModule from './components/PaymentModule.tsx';
-import VerificationList from './components/VerificationList.tsx';
-import ReportsModule from './components/ReportsModule.tsx';
-import Auth from './components/Auth.tsx';
-import UserManagement from './components/UserManagement.tsx';
-import SettingsModule from './components/SettingsModule.tsx';
-import LedgerModule from './components/LedgerModule.tsx';
-import RepresentativePortal from './components/RepresentativePortal.tsx';
+import Dashboard from './components/Dashboard';
+import StudentRegistration from './components/StudentRegistration';
+import PaymentModule from './components/PaymentModule';
+import VerificationList from './components/VerificationList';
+import ReportsModule from './components/ReportsModule';
+import Auth from './components/Auth';
+import UserManagement from './components/UserManagement';
+import SettingsModule from './components/SettingsModule';
+import LedgerModule from './components/LedgerModule';
+import RepresentativePortal from './components/RepresentativePortal';
 
 const INSTITUTION_LOGO = "https://i.ibb.co/FbHJbvVT/images.png";
+
+function NavItem({ active, onClick, icon, label, badge }: { active: boolean, onClick: () => void, icon: any, label: string, badge?: number }) {
+  return (
+    <button onClick={onClick} className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all group ${active ? 'bg-blue-600 text-white shadow-xl shadow-blue-500/20 font-black' : 'text-slate-400 hover:bg-slate-800/50 font-bold'}`}>
+      <div className="flex items-center gap-4">
+        <span className={`${active ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`}>{icon}</span>
+        <span className="text-[10px] uppercase tracking-widest">{label}</span>
+      </div>
+      {badge ? <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black ${active ? 'bg-white text-blue-600' : 'bg-rose-500 text-white'}`}>{badge}</span> : null}
+    </button>
+  );
+}
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'students' | 'payments' | 'verification' | 'reports' | 'users' | 'settings' | 'ledger'>('dashboard');
@@ -275,15 +287,5 @@ const App: React.FC = () => {
     </div>
   );
 };
-
-const NavItem = ({ active, onClick, icon, label, badge }: { active: boolean, onClick: () => void, icon: any, label: string, badge?: number }) => (
-  <button onClick={onClick} className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all group ${active ? 'bg-blue-600 text-white shadow-xl shadow-blue-500/20 font-black' : 'text-slate-400 hover:bg-slate-800/50 font-bold'}`}>
-    <div className="flex items-center gap-4">
-      <span className={`${active ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`}>{icon}</span>
-      <span className="text-[10px] uppercase tracking-widest">{label}</span>
-    </div>
-    {badge ? <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black ${active ? 'bg-white text-blue-600' : 'bg-rose-500 text-white'}`}>{badge}</span> : null}
-  </button>
-);
 
 export default App;
