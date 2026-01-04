@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Representative, PaymentRecord, LevelFees, PaymentStatus } from '../types';
-import { ICONS } from '../constants';
-import { ChevronDown, ChevronUp, History, Receipt, Info, Check, Calendar, AlertCircle, RefreshCw as RefreshCwIcon } from 'lucide-react';
+import { ChevronUp, History, Receipt, Info, Check, Calendar, AlertCircle } from 'lucide-react';
 
 function RefreshCw({ className, size }: { className?: string, size: number }) {
   return (
@@ -20,7 +19,7 @@ interface Props {
   fees: LevelFees;
 }
 
-const LedgerModule: React.FC<Props> = ({ representatives, payments, fees }) => {
+export default function LedgerModule({ representatives, payments, fees }: Props) {
   const [expandedRep, setExpandedRep] = useState<string | null>(null);
 
   const getDaysUntilEndOfMonth = () => {
@@ -260,6 +259,4 @@ const LedgerModule: React.FC<Props> = ({ representatives, payments, fees }) => {
       </div>
     </div>
   );
-};
-
-export default LedgerModule;
+}

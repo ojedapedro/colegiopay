@@ -11,7 +11,7 @@ import {
   UserRole
 } from './types';
 import { ICONS } from './constants';
-import { ChevronDown, ChevronUp, ShieldCheck, LayoutGrid, ClipboardList, Wallet, FileBarChart, Settings, Users, UserPlus, Bell, RefreshCcw } from 'lucide-react';
+import { ShieldCheck, LayoutGrid, ClipboardList, Wallet, FileBarChart, Settings, Users, UserPlus, RefreshCcw } from 'lucide-react';
 import { initialRepresentatives, initialPayments, initialUsers } from './services/mockData';
 import { sheetService } from './services/googleSheets';
 
@@ -40,7 +40,7 @@ function NavItem({ active, onClick, icon, label, badge }: { active: boolean, onC
   );
 }
 
-const App: React.FC = () => {
+export default function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'students' | 'payments' | 'verification' | 'reports' | 'users' | 'settings' | 'ledger'>('dashboard');
   
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -198,7 +198,6 @@ const App: React.FC = () => {
     );
   }
 
-  // Permisos según Rol
   const canManageUsers = currentUser.role === UserRole.ADMINISTRADOR;
   const canConfig = currentUser.role === UserRole.ADMINISTRADOR || currentUser.role === UserRole.SUPERVISOR;
 
@@ -286,6 +285,4 @@ const App: React.FC = () => {
       </main>
     </div>
   );
-};
-
-export default App;
+}

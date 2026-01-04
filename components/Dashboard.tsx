@@ -1,10 +1,8 @@
-
 import React from 'react';
 import { Representative, PaymentRecord, PaymentStatus } from '../types';
-import { ICONS, COLORS } from '../constants';
+import { ICONS } from '../constants';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 
-// Define Props interface outside the component to be accessible by React.FC<Props>
 interface Props {
   representatives: Representative[];
   payments: PaymentRecord[];
@@ -24,7 +22,7 @@ function StatCard({ title, value, icon, color }: { title: string; value: string;
   );
 }
 
-const Dashboard: React.FC<Props> = ({ representatives, payments }) => {
+export default function Dashboard({ representatives, payments }: Props) {
   const verifiedPayments = payments.filter(p => p.status === PaymentStatus.VERIFICADO);
   const totalIncome = verifiedPayments.reduce((sum, p) => sum + p.amount, 0);
   const pendingIncome = payments.filter(p => p.status === PaymentStatus.PENDIENTE).reduce((sum, p) => sum + p.amount, 0);
@@ -110,6 +108,4 @@ const Dashboard: React.FC<Props> = ({ representatives, payments }) => {
       </div>
     </div>
   );
-};
-
-export default Dashboard;
+}
