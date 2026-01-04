@@ -1,6 +1,6 @@
 import React from 'react';
-import { Representative, PaymentRecord, PaymentStatus, Level } from '../types';
-import { ICONS } from '../constants';
+import { Representative, PaymentRecord, PaymentStatus, Level } from '../types.ts';
+import { ICONS } from '../constants.tsx';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 
 interface DashboardProps {
